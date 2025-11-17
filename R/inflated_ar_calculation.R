@@ -1,4 +1,4 @@
-postivie_inflated_conditional_acceptance_region <- function(theta, r, ct, alpha) {
+pp_cond_ar <- function(theta, r, ct, alpha) {
   # Compute shortest AR
   shortest_ar <- Shortest.AR(theta = theta,
                              ct = ct,
@@ -83,14 +83,13 @@ calculate_ar_length <- function(ar) {
   }
 }
 
-negative_inflated_conditional_acceptance_region <- function(theta, r, ct, alpha, two_regions = FALSE) {
+np_cond_ar <- function(theta, r, ct, alpha) {
   # Flip the sign of theta
-  ar_pos <- positive_inflated_conditional_acceptance_region(
+  ar_pos <- pp_cond_ar(
     theta = -theta,
     r = r,
     ct = ct,
-    alpha = alpha,
-    two_regions = two_regions
+    alpha = alpha
   )
 
   # Reverse and negate the bounds
@@ -110,7 +109,7 @@ quantile_ar_theta_1_finder <- function(ct, alpha, p = alpha / 2) {
 
 generate_lower_bound_function_diff <- function(r, ct, alpha) {
   f <- function(theta) {
-    ar <- postivie_inflated_conditional_acceptance_region(
+    ar <- pp_cond_ar(
       theta = theta,
       r = r,
       ct = ct,
@@ -133,12 +132,20 @@ f <- generate_lower_bound_function_diff(r = 1.3, ct = ct, alpha = alpha)
 min_possible_theta  <- quantile_ar_theta_1_finder(ct    = qnorm(0.975),
                                                   alpha = 0.05,
                                                   p     = 0.05)
-min_theta_for_nsnsc <- uniroot(f, lower = min_possible_theta, upper = min_theta_for_shortest)
+min_theta_for_nsnsc <- -uniroot(f, lower = min_possible_theta, upper = min_theta_for_shortest)$root
 
-theta <- min_possible_theta
-theta <- min_theta_for_shortest
-ct    <- qnorm(0.975)
-alpha <- 0.05
-r     <- 1.3
+## Confidence Interval
+## Finding the parameters
+l2_theta_minus_r  <- min(np_cond_ar(min_theta_for_nsnsc, r = 1.3, ct = ct, alpha = alpha), na.rm = TRUE)
+l1_theta_zero_r   <- min(np_cond_ar(0, r = 1.3, ct = ct, alpha = alpha))
+l1_theta_zero_r1  <- min(np_cond_ar(0, r = 1, ct = ct, alpha = alpha))
+
+
+
+
+
+
+
+
 
 ## searching for theta for which the lower-bound is at
