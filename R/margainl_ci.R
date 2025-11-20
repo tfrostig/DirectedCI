@@ -52,7 +52,7 @@ ar_ns_nc <- function(theta, r_l, r_u, switch_val = 0, alpha = 0.05) {
   }
 
   # small offset to avoid qnorm(0) and qnorm(1)
-  eps <- .Machine$double.eps^0.25
+  eps <- .Machine$double.eps
   z_alpha2 <- qnorm(1 - alpha / 2)
   target_len_l <- r_l * 2 * z_alpha2
   target_len_u <- r_u * 2 * z_alpha2
@@ -64,7 +64,7 @@ ar_ns_nc <- function(theta, r_l, r_u, switch_val = 0, alpha = 0.05) {
     } else {
       find_beta <- function(beta) interval_length(beta) - target_len_l
       beta <- uniroot(find_beta,
-                      c(eps, alpha / 2 - eps),
+                      c(eps, alpha / 2),
                       tol = .Machine$double.eps)$root
     }
   } else if (theta > switch_val) {
@@ -149,12 +149,12 @@ ar_ns_nc <- function(theta, r_l, r_u, switch_val = 0, alpha = 0.05) {
 #' ci_ns_nc(y = 1.2, r_l = 0.5, r_u = 1, switch_val = 0, alpha = 0.05)
 #'
 #' @export
-ci_ns_nc <- function(y,
+pp_marginal_ci <- function(y,
                      r_l,
-                     r_u = 1,
-                     switch_val = 0,
                      alpha = 0.05,
                      epsilon = 1e-15) {
+  r_u = 1
+  switch_val = 0
 
   ar_func <- function(theta) {
     ar_ns_nc(theta, r_l = r_l, r_u = r_u,
@@ -190,7 +190,7 @@ ci_ns_nc <- function(y,
   if (y >= c2 && y <= switch_val) {
     return(c(y - z_alpha2, y + qnorm(1 - u_switch_val_beta)))
   }
-  if (y >= switch_val && y < c3) {
+  if (y > switch_val && y < c3) {
     return(c(y - qnorm(1 - (alpha - l_switch_val_beta)), y + z_alpha2))
   }
   if (y >= c3 && y < c4) {
@@ -203,3 +203,116 @@ ci_ns_nc <- function(y,
   # Fallback (should not be reached)
   c(NA_real_, NA_real_)
 }
+
+
+#' User-Facing Marginal Direction-Preferring Confidence Interval
+#'
+#' Computes a marginal (unconditional) direction-preferring confidence interval
+#' for an estimator \eqn{Y \sim N(\mu, \sigma^2)}. This is a wrapper around
+#' \code{\link{pp_marginal_ci}}, which operates only on the Z-scale
+#' (i.e., assumes \eqn{Y \sim N(0,1)}).
+#'
+#' The wrapper:
+#' \enumerate{
+#'   \item Standardizes the observed statistic and parameter scale.
+#'   \item Calls the appropriate marginal CI construction on the Z-scale.
+#'   \item Inverts back to the original scale.
+#'   \item Applies input validation, boundary checks, and sanity tests.
+#' }
+#'
+#' @param y Numeric scalar. Observed estimator.
+#' @param mean Numeric scalar. Mean \eqn{\mu} of the estimator.
+#' @param sd Positive numeric scalar. Standard deviation \eqn{\sigma}.
+#' @param r_l Numeric in \eqn{[0,1]}. Relative length factor for lower side
+#'   of the acceptance region.
+#' @param r_u Numeric in \eqn{[0,1]}. Relative length factor for upper side.
+#'   Currently \code{pp_marginal_ci} only supports \code{r_u = 1}.
+#' @param alpha Numeric in \eqn{(0,1)}. Total type I error.
+#' @param direction Character, either \code{"positive"} or \code{"negative"},
+#'   describing the preferred direction of inference.
+#'
+#' @return Numeric vector of length 2, the CI on the original scale.
+#'
+#' @examples
+#' direction_preferring_marginal_ci(
+#'   y = 3.1, mean = 2, sd = 1.5,
+#'   r_l = 0.4, r_u = 1,
+#'   alpha = 0.05,
+#'   direction = "positive"
+#' )
+#'
+#' @export
+direction_preferring_marginal_ci <- function(
+    y,
+    mean,
+    sd,
+    r_l,
+    r_u = 1,
+    alpha = 0.05,
+    direction = c("positive", "negative")
+) {
+
+  #########################################
+  # 1. Validation
+  #########################################
+
+  direction <- match.arg(direction)
+
+  if (!is.numeric(y) || length(y) != 1)
+    stop("y must be a single numeric value.")
+
+  if (!is.numeric(mean) || length(mean) != 1)
+    stop("mean must be numeric.")
+
+  if (!is.numeric(sd) || length(sd) != 1 || sd <= 0)
+    stop("sd must be a single positive numeric value.")
+
+  if (!is.numeric(r_l) || r_l < 0 || r_l > 1)
+    stop("r_l must be in [0,1].")
+
+  if (!is.numeric(r_u) || r_u < 0 || r_u > 1)
+    stop("r_u must be in [0,1].")
+
+  if (r_u != 1)
+    warning("pp_marginal_ci() only supports r_u = 1. Behavior undefined for r_u ≠ 1.")
+
+  if (!is.numeric(alpha) || alpha <= 0 || alpha >= 1)
+    stop("alpha must be in (0,1).")
+
+
+  #########################################
+  # 2. Standardize to Z-scale
+  #########################################
+
+  z <- (y - mean) / sd
+
+
+  #########################################
+  # 3. Compute CI in Z-scale
+  #########################################
+
+  if (direction == "positive") {
+
+    ci_z <- pp_marginal_ci(
+      y = z,
+      r_l = r_l,
+      alpha = alpha
+    )
+
+  } else {  # negative direction
+
+    # Use reflection: CI(-y) then transform back
+    ci_neg_z <- pp_marginal_ci(
+      y = -z,
+      r_l = r_l,
+      alpha = alpha
+    )
+
+    ci_z <- -rev(ci_neg_z)
+  }
+
+  ci_original <- mean + sd * ci_z
+
+  return(ci_original)
+}
+

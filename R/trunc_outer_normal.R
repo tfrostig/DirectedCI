@@ -1,3 +1,5 @@
+
+
 # CDF of N(mu, 1) truncated outside (-b, b)
 cdf_tn_outer <- function(y, mu, b, sigma = 1, a = -b) {
   W <- pnorm((b - mu) / sigma) - pnorm((a - mu) / sigma)
