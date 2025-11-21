@@ -20,19 +20,6 @@
 #' @param alpha Numeric scalar in \eqn{(0, 1)}. Total type I error for the
 #'   two-sided procedure.
 #'
-#' @details
-#' The procedure partitions \eqn{\alpha} into \eqn{\beta} and
-#' \eqn{\alpha - \beta}, which correspond to the lower and upper tail
-#' probabilities of a normal acceptance region for \eqn{\theta}. The function
-#' solves for \eqn{\beta} such that the length of the resulting (Z-scale)
-#' interval matches a target length determined by \code{r_l}, \code{r_u}, and
-#' the usual symmetric \eqn{1 - \alpha} normal confidence interval.
-#'
-#' When \code{theta} is below \code{switch_val}, the allocation is governed by
-#' \code{r_l}. When \code{theta} is above \code{switch_val}, it is governed by
-#' \code{r_u}. When \code{theta == switch_val} and \code{r_l == r_u}, the
-#' procedure reverts to a symmetric split \eqn{\beta = \alpha / 2}.
-#'
 #' @return
 #' A list with components:
 #' \describe{
@@ -117,29 +104,11 @@ ar_ns_nc <- function(theta, r_l, r_u, switch_val = 0, alpha = 0.05) {
 #' @param y Numeric scalar. Observed value of the test statistic on the Z-scale.
 #' @param r_l Numeric scalar in \eqn{[0, 1]}. Relative length factor for the
 #'   lower side of the interval; see \code{\link{ar_ns_nc}}.
-#' @param r_u Numeric scalar in \eqn{[0, 1]}. Relative length factor for the
-#'   upper side of the interval. The current implementation assumes
-#'   \code{r_u = 1} in its piecewise structure; other values are not fully
-#'   supported and may require additional derivations.
-#' @param switch_val Numeric scalar. Switching point for the allocation rule;
-#'   see \code{\link{ar_ns_nc}}.
 #' @param alpha Numeric scalar in \eqn{(0, 1)}. Total type I error for the
 #'   two-sided procedure.
 #' @param epsilon Numeric scalar. Small perturbation used to probe the
-#'   acceptance region around \code{switch_val} and the lower boundary of the
+#'   acceptance region around \code{0} and the lower boundary of the
 #'   parameter space.
-#'
-#' @details
-#' The function inverts the acceptance region induced by
-#' \code{\link{ar_ns_nc}} by identifying critical values of \code{y} that
-#' correspond to boundaries of the acceptance region as functions of
-#' \eqn{\theta}. The resulting mapping yields a piecewise expression for the
-#' confidence interval as a function of \code{y}.
-#'
-#' The current implementation is tailored to the case \code{r_u = 1}, i.e., the
-#' upper side behaves like a standard symmetric interval beyond the switch
-#' point. Using this function with \code{r_u != 1} is not recommended unless
-#' the piecewise structure has been re-derived accordingly.
 #'
 #' @return
 #' A numeric vector of length 2 giving the lower and upper bounds of the
@@ -223,10 +192,7 @@ pp_marginal_ci <- function(y,
 #' @param y Numeric scalar. Observed estimator.
 #' @param mean Numeric scalar. Mean \eqn{\mu} of the estimator.
 #' @param sd Positive numeric scalar. Standard deviation \eqn{\sigma}.
-#' @param r_l Numeric in \eqn{[0,1]}. Relative length factor for lower side
-#'   of the acceptance region.
-#' @param r_u Numeric in \eqn{[0,1]}. Relative length factor for upper side.
-#'   Currently \code{pp_marginal_ci} only supports \code{r_u = 1}.
+#' @param r Numeric in \eqn{[0,1]}. Relative length factor for the acceptance region.
 #' @param alpha Numeric in \eqn{(0,1)}. Total type I error.
 #' @param direction Character, either \code{"positive"} or \code{"negative"},
 #'   describing the preferred direction of inference.
@@ -235,8 +201,8 @@ pp_marginal_ci <- function(y,
 #'
 #' @examples
 #' direction_preferring_marginal_ci(
-#'   y = 3.1, mean = 2, sd = 1.5,
-#'   r_l = 0.4, r_u = 1,
+#'   y = 3.1, sd = 1.5,
+#'   r = 1.3,
 #'   alpha = 0.05,
 #'   direction = "positive"
 #' )
@@ -246,8 +212,7 @@ direction_preferring_marginal_ci <- function(
     y,
     mean,
     sd,
-    r_l,
-    r_u = 1,
+    r,
     alpha = 0.05,
     direction = c("positive", "negative")
 ) {
@@ -267,14 +232,8 @@ direction_preferring_marginal_ci <- function(
   if (!is.numeric(sd) || length(sd) != 1 || sd <= 0)
     stop("sd must be a single positive numeric value.")
 
-  if (!is.numeric(r_l) || r_l < 0 || r_l > 1)
-    stop("r_l must be in [0,1].")
-
-  if (!is.numeric(r_u) || r_u < 0 || r_u > 1)
-    stop("r_u must be in [0,1].")
-
-  if (r_u != 1)
-    warning("pp_marginal_ci() only supports r_u = 1. Behavior undefined for r_u ≠ 1.")
+  if (!is.numeric(r) || r < 0 || r > 1)
+    stop("r must be in [0,1].")
 
   if (!is.numeric(alpha) || alpha <= 0 || alpha >= 1)
     stop("alpha must be in (0,1).")
@@ -295,7 +254,7 @@ direction_preferring_marginal_ci <- function(
 
     ci_z <- pp_marginal_ci(
       y = z,
-      r_l = r_l,
+      r_l = r,
       alpha = alpha
     )
 
@@ -304,7 +263,7 @@ direction_preferring_marginal_ci <- function(
     # Use reflection: CI(-y) then transform back
     ci_neg_z <- pp_marginal_ci(
       y = -z,
-      r_l = r_l,
+      r_l = r,
       alpha = alpha
     )
 

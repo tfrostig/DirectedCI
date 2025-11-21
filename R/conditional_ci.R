@@ -34,36 +34,12 @@
 #'
 #' @param y Numeric. The observed test statistic \eqn{Y}.
 #' @param ct Numeric. The cutoff \eqn{c_t} defining the standard acceptance region
-#'   (typically \eqn{q_{1-\alpha/2}} for a symmetric distribution).
+#'   (typically \eqn{q_{1-\alpha/2}} for a standard normal distribution).
 #' @param r Numeric. Inflation parameter controlling the maximum allowed length of
 #'   acceptance regions for \eqn{\theta \le 0}. Larger \eqn{r} increases the
 #'   preference for determining a positive sign.
 #' @param alpha Numeric. Nominal significance level \eqn{\alpha}; the CI has
-#'   unconditional \eqn{1-\alpha} coverage.
-#'
-#' @details
-#' The CI is constructed by solving the inversion equations
-#' \deqn{
-#'   y \in \operatorname{AR}(\theta;\alpha,r),
-#' }
-#' where the acceptance region depends on \eqn{\theta} in a non-equivariant,
-#' direction-preferring way.
-#'
-#' Thresholds in \eqn{y} divide the inversion into regimes:
-#' \itemize{
-#'   \item extremely negative \eqn{y}, where intervals coincide with modified
-#'   Pratt-type bounds,
-#'   \item moderate negative \eqn{y}, where the upper bound becomes fixed at 0,
-#'   \item central regimes around 0, where acceptance-region inflation is active,
-#'   \item positive regimes where lower bounds may be fixed at 0 or solved via
-#'   root-finding,
-#'   \item sufficiently large \eqn{y}, where the CI coincides with the standard
-#'   shortest CI.
-#' }
-#'
-#' Each bound is found via `uniroot()` applied to the functions
-#' \code{lb_function()} and \code{ub_function()}, which solve for values of
-#' \eqn{\theta} whose acceptance region first touches \eqn{y}.
+#'   conditional \eqn{1-\alpha} coverage.
 #'
 #' @return
 #' A numeric vector of length 2:
@@ -215,7 +191,7 @@ np_conditional_ci <- function(y, ct, r, alpha) {
 #'
 #' @examples
 #' direction_preferring_ci(
-#'   y = 1.2, mean = 0, sd = 2,
+#'   y = 1.2, sd = 2,
 #'   r = 1.3, ct = qnorm(0.975),
 #'   alpha = 0.05, direction = "positive"
 #' )
@@ -229,10 +205,6 @@ conditional_direction_preferring_ci <- function(
     alpha = 0.05,
     direction = c("positive", "negative")
 ) {
-
-  #############################
-  ## 1. INPUT VALIDATION
-  #############################
 
   direction <- match.arg(direction)
 
@@ -251,10 +223,6 @@ conditional_direction_preferring_ci <- function(
   if (!is.numeric(alpha) || alpha <= 0 || alpha >= 1)
     stop("alpha must be in (0,1).")
 
-  #############################
-  ## 2. STANDARDIZE Y and ct
-  #############################
-
   z    <-  y / sd
   z_ct <- ct / sd
 
@@ -262,9 +230,6 @@ conditional_direction_preferring_ci <- function(
     stop("The normalized score should be larger than the nomralized cutoff ct/sd
          to construct a direction-preferring CI.")
   }
-  #############################
-  ## 3. COMPUTE CI IN N(0,1)
-  #############################
 
   if (direction == "positive") {
     ci_standardized <- pp_conditional_ci(z, ct = z_ct, r = r, alpha = alpha)
@@ -277,10 +242,6 @@ conditional_direction_preferring_ci <- function(
   if (any(!is.finite(ci_standardized))) {
     warning("Infinite or NaN values in standardized CI.")
   }
-
-  #############################
-  ## 4. RESCALE BACK TO ORIGINAL SCALE
-  #############################
 
   ci_original <- sd * ci_standardized
 
