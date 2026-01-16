@@ -1,20 +1,27 @@
 Package: DirectedCI
 Type: Package
-Title: What the Package Does (Title Case)
-Version: 0.1.0
+Title: Direction Preferring Confidence Intervals for Normal Means
+Version: 0.2.0
 Authors@R: c(
     person(
-      "Jane", "Doe",
-      email = "jane@example.com",
+      "Tzvi", "Frostig",
+      email = "tzvi.frostig@example.com",
       role = c("aut", "cre")
     )
   )
-Description: More about what it does (maybe more than one line).
-    Continuation lines should be indented.
-License: What license is it under?
+Description: Implements direction-preferring confidence intervals for location
+    parameters under normal models. Provides marginal (unconditional) and
+    conditional confidence intervals using three methods: direction preferring,
+    modified Pratt, and shortest. The methods are based on acceptance region
+    inversion and allow preferential inference in a specified direction while
+    maintaining nominal coverage.
+License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
-Suggests: 
+Imports:
+    stats
+Suggests:
+    ggplot2,
     knitr,
     rmarkdown,
     testthat (>= 3.0.0)
@@ -22,3 +29,4 @@ Config/testthat/edition: 3
 URL: https://github.com/tfrostig/DirectedCI
 BugReports: https://github.com/tfrostig/DirectedCI/issues
 VignetteBuilder: knitr
+RoxygenNote: 7.2.3
