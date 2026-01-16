@@ -94,7 +94,7 @@ pp_conditional_ci <- function(y, ct, r, alpha) {
     lower_interval <- bounds_for_ci(y, ct, alpha, lower_ci_bound = TRUE)
     lower_bound    <- uniroot(lb_function, lower_interval)$root
 
-    upper_interval <- bounds_for_ci(y, ct, alpha / 2, lower_ci_bound = FALSE)
+    upper_interval <- bounds_for_ci(y, ct, alpha, lower_ci_bound = FALSE)
     upper_bound    <- uniroot(ub_function, upper_interval)$root
   }
   if (y >= neg_threshold_1 & y < neg_threshold_2) {
