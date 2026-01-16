@@ -2,15 +2,22 @@
 
 # CDF of N(mu, 1) truncated outside (-b, b)
 cdf_tn_outer <- function(y, mu, b, sigma = 1, a = -b) {
-  W <- pnorm((b - mu) / sigma) - pnorm((a - mu) / sigma)
+  # More stable calculation of 1 - W directly
+  p_below_a <- pnorm((a - mu) / sigma)
+  p_above_b <- pnorm((b - mu) / sigma, lower.tail = FALSE)
+  one_minus_W <- p_below_a + p_above_b
+
   if (y <= a) {
-    return(pnorm((y - mu) / sigma) / (1 - W))
+    return(pnorm((y - mu) / sigma) / one_minus_W)
   }
   if (y > a & y <= b) {
-    return(pnorm((a - mu) / sigma) / (1 - W))
+    return(p_below_a / one_minus_W)
   }
   if (y > b) {
-    return((pnorm((y - mu) / sigma) - W) / (1 - W))
+    # Reformulated: 1 - P(Y > y) / (1 - W)
+    # Avoids subtracting two numbers close to 1
+    p_above_y <- pnorm((y - mu) / sigma, lower.tail = FALSE)
+    return(1 - p_above_y / one_minus_W)
   }
 }
 

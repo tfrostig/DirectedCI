@@ -5,33 +5,39 @@ invert_ars <- function(y, ars) {
 }
 
 ub_finder <- function(lb, theta, ct, alpha) {
+  ## find the upper bound given the lower bound and coverage rate
   pl <- alpha - cdf_tn_outer(lb, theta, ct)
   quantile_tn_outer(1 - max(pl, 0), theta, ct)
 }
 
 lb_finder <- function(ub, theta, ct, alpha) {
+  ## find the lower bound given the upper bound and coverage rate
   pr <- 1 - cdf_tn_outer(ub, theta, ct)
   pl <- max(alpha - pr, 0)
   quantile_tn_outer(pl, theta, ct)
 }
 
 theta_1_finder <- function(ct, alpha) {
+  ## theta 1 is defined as the value of theta such that P(X <= -ct) = alpha / 2
   f <- function(theta)
     cdf_tn_outer(-ct, theta, ct) - alpha / 2
   return(uniroot(f, c(0, ct + qnorm(1 - alpha)))$root)
 }
 
 cond_ar_given_lb <- function(lb, theta, ct, alpha) {
+  ## find the upper bound given the lower bound and return the AR
   ub <- ub_finder(lb, theta, ct, alpha)
   cond_ar_given_lb_ub(lb, ub, ct)
 }
 
 cond_ar_given_ub <- function(ub, theta, ct, alpha) {
+  ## find the lower bound given the upper bound and return the AR
   lb <- lb_finder(ub, theta, ct, alpha)
   cond_ar_given_lb_ub(lb, ub, ct)
 }
 
 cond_ar_given_lb_ub <- function(lb, ub, ct) {
+  ## utility function to construct AR given lb and ub
   if (lb >= ct) {
     return(c(NA, NA, lb, ub))
   } else if (ub <= -ct) {
@@ -40,6 +46,7 @@ cond_ar_given_lb_ub <- function(lb, ub, ct) {
     return(c(lb, -ct, ct, ub))
   }
 }
+
 
 diff_from_shortest_given_lb <- function(target_len, lb, theta, ct, alpha) {
   ar     <- cond_ar_given_lb(lb, theta, ct, alpha)
@@ -65,8 +72,10 @@ calculate_ar_length <- function(ar) {
   }
 }
 
-# for a given extension over the shortest AR length, for which theta does the AR lower bound move right of the truncation
 find_tilde_1 <- function(ct, r, alpha) {
+  # For a given value of r > 1, find the value of theta such that
+  # the min(AR(r) > ct).
+  # The function assumes that the acceptance region extends to the positive side
   theta1          <- theta_1_finder(ct, alpha)
   # find tilde_1
   f <- function(theta) {
@@ -80,6 +89,7 @@ find_tilde_1 <- function(ct, r, alpha) {
 
 
 bounds_for_ci <- function(y, ct, alpha, lower_ci_bound = TRUE) {
+
   large_bound <- c(-1 / EPS, 1 / EPS)
 
   if (!lower_ci_bound) {
