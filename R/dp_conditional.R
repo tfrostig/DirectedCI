@@ -69,11 +69,6 @@ dp_conditional_ar <- function(theta, ct = qnorm(0.975), r = 1.3, alpha = 0.05) {
   list(ar = ar, length = calculate_ar_length(ar))
 }
 
-# Alias for backwards compatibility
-pp_conditional_ar <- function(theta, ct, r, alpha) {
-  dp_conditional_ar(theta, ct, r, alpha)$ar
-}
-
 #' Direction Preferring Conditional CI (Positive Direction)
 #'
 #' Computes the direction-preferring CI for a normal mean conditional on
@@ -87,10 +82,10 @@ pp_conditional_ar <- function(theta, ct, r, alpha) {
 #' @return Numeric vector of length 4: c(ll, ul, lr, ur).
 #'
 #' @examples
-#' pp_conditional_ci(y = 2.5, ct = qnorm(0.975), r = 1.3, alpha = 0.05)
+#' dp_conditional_ci(y = 2.5, ct = qnorm(0.975), r = 1.3, alpha = 0.05)
 #'
 #' @export
-pp_conditional_ci <- function(y, ct = qnorm(0.975), r = 1.3, alpha = 0.05) {
+dp_conditional_ci <- function(y, ct = qnorm(0.975), r = 1.3, alpha = 0.05) {
   # Regime change points
   theta_1_minus_shortest <- -theta_1_finder(ct, alpha)
   theta_1_minus_r <- -find_tilde_1(ct, r, alpha)
@@ -164,7 +159,7 @@ pp_conditional_ci <- function(y, ct = qnorm(0.975), r = 1.3, alpha = 0.05) {
 #' Direction Preferring Conditional CI (Negative Direction)
 #'
 #' Computes the direction-preferring CI for a normal mean conditional on
-#' significance, favoring negative values. Uses reflection of pp_conditional_ci.
+#' significance, favoring negative values. Uses reflection of dp_conditional_ci.
 #'
 #' @param y Numeric. Observed test statistic (on Z-scale). Must satisfy |y| > ct.
 #' @param ct Numeric > 0. Critical value. Default qnorm(0.975).
@@ -174,7 +169,7 @@ pp_conditional_ci <- function(y, ct = qnorm(0.975), r = 1.3, alpha = 0.05) {
 #' @return Numeric vector of length 4: c(ll, ul, lr, ur).
 #'
 #' @export
-np_conditional_ci <- function(y, ct = qnorm(0.975), r = 1.3, alpha = 0.05) {
-  ci_neg <- pp_conditional_ci(-y, ct, r, alpha)
+dn_conditional_ci <- function(y, ct = qnorm(0.975), r = 1.3, alpha = 0.05) {
+  ci_neg <- dp_conditional_ci(-y, ct, r, alpha)
   c(NA_real_, NA_real_, -ci_neg[4], -ci_neg[3])
 }

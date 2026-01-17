@@ -31,7 +31,7 @@ plot_dp_forest <- function(df,
                            title_label = "Direction-Preferring Confidence Intervals") {
 
   # Build a long-format CI table (mp/std/unadjusted not needed here)
-  marginal_df <- df %>% 
+  marginal_df <- df %>%
     mutate(type = "Marginal DP+",
            lower = .data[[marg_L]],
            upper = .data[[marg_U]],
@@ -45,14 +45,14 @@ plot_dp_forest <- function(df,
 
   # Combine them
   ci_long <- bind_rows(marginal_df, conditional_df) %>%
-    mutate(setting = factor(setting, 
+    mutate(setting = factor(setting,
                             levels = c("BY Adjusted CIs", "Conditional CIs"),
                             ordered = TRUE),
            type = factor(type, levels = c("Marginal DP+", "Conditional DP+")))
 
-  # Colors
-  color_vec <- c("Marginal DP+" = "#1F77B4",
-                 "Conditional DP+" = "#D62728")
+  # Colors (matching PDF figures)
+  color_vec <- c("Marginal DP+" = "#00CED1",
+                 "Conditional DP+" = "#000000")
 
   # Build the plot
   ggplot(ci_long,
@@ -95,6 +95,95 @@ plot_dp_forest <- function(df,
 }
 
 ```
+
+---
+
+# Quick Start: Using the CI Functions
+
+This section demonstrates how to use the various confidence interval methods provided by the `DirectedCI` package.
+
+## Basic Setup
+
+All CI functions work with a single observation `y` and its standard deviation `sd`. They return a 4-element vector `c(ll, ul, lr, ur)` where positions 3 and 4 contain the lower and upper CI bounds (positions 1-2 are used for split intervals).
+
+```{r basic-example}
+# Example: Observed estimate with SE
+y <- 2.5    # Point estimate
+sd <- 1.0   # Standard error
+
+alpha <- 0.05
+ct <- qnorm(1 - alpha/2)  # Critical value for selection (~1.96)
+```
+
+## Marginal (Unconditional) CIs
+
+Marginal CIs are valid without conditioning on selection.
+
+```{r marginal-cis}
+# 1. Shortest (symmetric) CI - standard CI
+shortest_marg <- shortest_marginal_ci_wrapper(y = y, sd = sd, alpha = alpha)
+cat("Shortest Marginal CI:", round(shortest_marg[3:4], 3), "\n")
+
+# 2. Modified Pratt CI (prefer positive direction)
+# Note: r >= 1 for MP - larger r = more asymmetry toward preferred direction
+mp_marg <- modified_pratt_marginal_ci(
+  y = y, sd = sd, r = 1.5, alpha = alpha, direction = "positive"
+)
+cat("MP+ Marginal CI:     ", round(mp_marg[3:4], 3), "\n")
+```
+
+## Conditional CIs (After Selection)
+
+Conditional CIs account for selection bias and require `|y/sd| > ct` (i.e., the result must be statistically significant).
+
+```{r conditional-cis}
+# Use a clearly significant observation
+y_sig <- 3.0  # Significant at alpha=0.05 since |3.0/1.0| > 1.96
+sd_sig <- 1.0
+
+# 1. Shortest Conditional CI
+shortest_cond <- shortest_conditional_ci_wrapper(
+  y = y_sig, sd = sd_sig, ct = ct, alpha = alpha
+)
+cat("Shortest Conditional CI:", round(shortest_cond[3:4], 3), "\n")
+
+# 2. Direction-Preferring Conditional CI
+# Note: r >= 1 for conditional DP - larger r = more asymmetry
+dp_cond <- direction_preferring_conditional_ci(
+  y = y_sig, sd = sd_sig, ct = ct, r = 1.3, alpha = alpha, direction = "positive"
+)
+cat("DP+ Conditional CI:     ", round(dp_cond[3:4], 3), "\n")
+
+# 3. Modified Pratt Conditional CI
+mp_cond <- modified_pratt_conditional_ci(
+  y = y_sig, sd = sd_sig, ct = ct, r = 1.3, alpha = alpha, direction = "positive"
+)
+cat("MP+ Conditional CI:     ", round(mp_cond[3:4], 3), "\n")
+```
+
+## Comparing All Methods
+
+```{r comparison-table}
+# Create comparison table for the significant observation
+comparison <- data.frame(
+  Method = c("Shortest Marginal", "MP+ Marginal (r=1.5)",
+             "Shortest Conditional", "DP+ Conditional (r=1.3)", "MP+ Conditional (r=1.3)"),
+  Lower = c(shortest_marg[3], mp_marg[3],
+            shortest_cond[3], dp_cond[3], mp_cond[3]),
+  Upper = c(shortest_marg[4], mp_marg[4],
+            shortest_cond[4], dp_cond[4], mp_cond[4])
+)
+comparison$Width <- comparison$Upper - comparison$Lower
+comparison[, 2:4] <- round(comparison[, 2:4], 3)
+comparison
+```
+
+## Key Differences
+
+- **Marginal vs Conditional**: Conditional CIs correct for selection bias but require significant observations (`|y/sd| > ct`)
+- **Direction-Preferring (DP+)**: Asymmetric CIs that allocate more coverage probability to the preferred direction; lower bound is clamped at 0 for positive preference
+- **Modified Pratt (MP)**: Alternative asymmetric CIs based on Pratt's approach; can extend the CI in the non-preferred direction
+- **r parameter**: For conditional CIs, r >= 1 controls the inflation; larger r = more asymmetry toward the preferred direction
 
 ---
 
@@ -165,14 +254,15 @@ dp_r <- 1.3
 lower_marginal <- upper_marginal <- rep(NA, length(ordered_means))
 
 for (i in seq_along(ordered_means)) {
-  marginal_ci <- pp_marginal_ci(
+  marginal_ci <- dp_marginal_ci(
     y     = ordered_means[i] / ordered_ses[i],
     r_l   = dp_r,
     alpha = length(selection_indices) * alpha / num_studies
   )
 
-  lower_marginal[i] <- marginal_ci[1] * ordered_ses[i]
-  upper_marginal[i] <- marginal_ci[2] * ordered_ses[i]
+  # CI is returned as c(ll, ul, lr, ur); single interval uses positions 3 and 4
+  lower_marginal[i] <- marginal_ci[3] * ordered_ses[i]
+  upper_marginal[i] <- marginal_ci[4] * ordered_ses[i]
 }
 
 round(cbind(lower_marginal, upper_marginal), 3)
@@ -186,15 +276,16 @@ round(cbind(lower_marginal, upper_marginal), 3)
 lower_conditional <- upper_conditional <- rep(NA, length(ordered_means))
 
 for (i in seq_along(ordered_means)) {
-  cond_ci <- pp_conditional_ci(
+  cond_ci <- dp_conditional_ci(
     y     = ordered_means[i] / ordered_ses[i],
     r     = dp_r,
     ct    = qnorm(1 - alpha/2),
     alpha = alpha
   )
 
-  lower_conditional[i] <- cond_ci[1] * ordered_ses[i]
-  upper_conditional[i] <- cond_ci[2] * ordered_ses[i]
+  # CI is returned as c(ll, ul, lr, ur); single interval uses positions 3 and 4
+  lower_conditional[i] <- cond_ci[3] * ordered_ses[i]
+  upper_conditional[i] <- cond_ci[4] * ordered_ses[i]
 }
 
 round(cbind(lower_conditional, upper_conditional), 3)
@@ -229,3 +320,52 @@ plot_dp_forest(results_table)
 
 ---
 
+# 8. Comprehensive CI Comparison
+
+The package provides a built-in `plot_ci_comparison` function that can compare multiple CI methods simultaneously, similar to the figures in the paper. This function computes and displays various CI methods including:
+
+- **Standard**: Unadjusted symmetric CI
+- **BY Standard**: BY05-adjusted symmetric CI
+- **BY DP+**: BY05-adjusted direction-preferring CI
+- **BY MP**: BY05-adjusted modified Pratt CI
+- **Cond. Standard**: Conditional symmetric CI
+- **Cond. DP+**: Conditional direction-preferring CI
+- **Cond. MP**: Conditional modified Pratt CI
+
+```{r fig.width=14, fig.height=8}
+# Use the built-in plot_ci_comparison function
+plot_ci_comparison(
+  estimates = ordered_means,
+  se = ordered_ses,
+  names = as.character(ordered_study_ids),
+  alpha = 0.05,
+  m = num_studies,
+  r = dp_r,
+  ct = qnorm(1 - alpha/2),
+  methods = c("standard", "by_standard", "by_dp", "by_mp",
+              "cond_standard", "cond_dp", "cond_mp"),
+  direction = "positive",
+  title = "Konstantopoulos (2011): CI Method Comparison",
+  xlab = "Standardized Mean Difference"
+)
+```
+
+We can also create a focused comparison of just BY-adjusted vs Conditional DP+ CIs:
+
+```{r fig.width=12, fig.height=6}
+plot_ci_comparison(
+  estimates = ordered_means,
+  se = ordered_ses,
+  names = as.character(ordered_study_ids),
+  alpha = 0.05,
+  m = num_studies,
+  r = dp_r,
+  ct = qnorm(1 - alpha/2),
+  methods = c("by_dp", "cond_dp"),
+  direction = "positive",
+  show_facets = TRUE,
+  title = "BY-Adjusted vs Conditional DP+ CIs"
+)
+```
+
+---

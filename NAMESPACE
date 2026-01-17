@@ -14,8 +14,8 @@ export(density_tn_outer)
 
 # Direction Preferring - Marginal
 export(dp_marginal_ar)
-export(pp_marginal_ci)
-export(np_marginal_ci)
+export(dp_marginal_ci)
+export(dn_marginal_ci)
 export(direction_preferring_marginal_ci)
 
 # Modified Pratt - Marginal
@@ -34,9 +34,8 @@ export(shortest_marginal_ci_wrapper)
 
 # Direction Preferring - Conditional
 export(dp_conditional_ar)
-export(pp_conditional_ar)
-export(pp_conditional_ci)
-export(np_conditional_ci)
+export(dp_conditional_ci)
+export(dn_conditional_ci)
 export(direction_preferring_conditional_ci)
 
 # Modified Pratt - Conditional
@@ -55,6 +54,7 @@ export(Shortest.CI)
 
 # Plotting
 export(plot_conditional_ar)
+export(plot_ci_comparison)
 
 # Import from stats
 importFrom(stats, dnorm, pnorm, qnorm, uniroot)

@@ -9,7 +9,7 @@
 #'
 #' @param y Numeric. Observed estimator value.
 #' @param sd Numeric > 0. Standard deviation of the estimator.
-#' @param r Numeric in [0, 1]. Relative length factor for the non-preferred direction.
+#' @param r Numeric >= 1. Inflation factor for acceptance region length.
 #' @param alpha Numeric in (0, 1). Significance level. Default 0.05.
 #' @param direction Character. Either "positive" or "negative". Default "positive".
 #' @param mean Numeric. Mean of the estimator (for centering). Default 0.
@@ -40,9 +40,9 @@ direction_preferring_marginal_ci <- function(y,
 
   # Compute CI on Z-scale
   if (direction == "positive") {
-    ci_z <- pp_marginal_ci(y = z, r_l = r, alpha = alpha)
+    ci_z <- dp_marginal_ci(y = z, r_l = r, alpha = alpha)
   } else {
-    ci_z <- np_marginal_ci(y = z, r_l = r, alpha = alpha)
+    ci_z <- dn_marginal_ci(y = z, r_l = r, alpha = alpha)
   }
 
   # Transform back to original scale
