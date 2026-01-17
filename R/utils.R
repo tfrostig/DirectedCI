@@ -59,8 +59,8 @@ validate_r_conditional <- function(r) {
 }
 
 validate_r_marginal <- function(r) {
-  if (!is.numeric(r) || length(r) != 1 || r < 0 || r > 1) {
-    stop("r (relative length) must be a numeric value in [0, 1].")
+  if (!is.numeric(r) || length(r) != 1 || r < 1) {
+    stop("r (inflation factor) must be a numeric value >= 1.")
   }
   invisible(NULL)
 }

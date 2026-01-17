@@ -54,14 +54,12 @@ simulate_coverage_single_theta <- function(theta,
     # Marginal
     marginal_dp_pos = 0,
     marginal_dp_neg = 0,
-    marginal_mp_pos = 0,
-    marginal_mp_neg = 0,
+    marginal_mp = 0,
     marginal_shortest = 0,
     # Conditional
     conditional_dp_pos = 0,
     conditional_dp_neg = 0,
-    conditional_mp_pos = 0,
-    conditional_mp_neg = 0,
+    conditional_mp = 0,
     conditional_shortest = 0
   )
 
@@ -77,35 +75,26 @@ simulate_coverage_single_theta <- function(theta,
 
     # Direction Preferring - Positive
     tryCatch({
-      ci <- pp_marginal_ci(y, r_l = r_marginal, alpha = alpha)
+      ci <- dp_marginal_ci(y, r_l = r_marginal, alpha = alpha)
       if (in_ci(theta, ci)) coverage$marginal_dp_pos <- coverage$marginal_dp_pos + 1
     }, error = function(e) {
-      message(sprintf("Error in pp_marginal_ci (theta=%.2f, y=%.2f): %s", theta, y, e$message))
+      message(sprintf("Error in dp_marginal_ci (theta=%.2f, y=%.2f): %s", theta, y, e$message))
     })
 
     # Direction Preferring - Negative
     tryCatch({
-      ci <- np_marginal_ci(y, r_l = r_marginal, alpha = alpha)
+      ci <- dn_marginal_ci(y, r_l = r_marginal, alpha = alpha)
       if (in_ci(theta, ci)) coverage$marginal_dp_neg <- coverage$marginal_dp_neg + 1
     }, error = function(e) {
-      message(sprintf("Error in np_marginal_ci (theta=%.2f, y=%.2f): %s", theta, y, e$message))
+      message(sprintf("Error in dn_marginal_ci (theta=%.2f, y=%.2f): %s", theta, y, e$message))
     })
 
-    # Modified Pratt - Positive (using reflection for direction)
+    # Modified Pratt (symmetric)
     tryCatch({
       ci <- mp_marginal_ci(y, r = r_conditional, alpha = alpha)
-      if (in_ci(theta, ci)) coverage$marginal_mp_pos <- coverage$marginal_mp_pos + 1
+      if (in_ci(theta, ci)) coverage$marginal_mp <- coverage$marginal_mp + 1
     }, error = function(e) {
       message(sprintf("Error in mp_marginal_ci (theta=%.2f, y=%.2f): %s", theta, y, e$message))
-    })
-
-    # Modified Pratt - Negative
-    tryCatch({
-      ci_pos <- mp_marginal_ci(-y, r = r_conditional, alpha = alpha)
-      ci <- c(NA_real_, NA_real_, -ci_pos[4], -ci_pos[3])
-      if (in_ci(theta, ci)) coverage$marginal_mp_neg <- coverage$marginal_mp_neg + 1
-    }, error = function(e) {
-      message(sprintf("Error in mp_marginal_ci neg (theta=%.2f, y=%.2f): %s", theta, y, e$message))
     })
 
     # Shortest
@@ -125,35 +114,26 @@ simulate_coverage_single_theta <- function(theta,
 
       # Direction Preferring - Positive
       tryCatch({
-        ci <- pp_conditional_ci(y, ct = ct, r = r_conditional, alpha = alpha)
+        ci <- dp_conditional_ci(y, ct = ct, r = r_conditional, alpha = alpha)
         if (in_ci(theta, ci)) coverage$conditional_dp_pos <- coverage$conditional_dp_pos + 1
       }, error = function(e) {
-        message(sprintf("Error in pp_conditional_ci (theta=%.2f, y=%.2f): %s", theta, y, e$message))
+        message(sprintf("Error in dp_conditional_ci (theta=%.2f, y=%.2f): %s", theta, y, e$message))
       })
 
       # Direction Preferring - Negative
       tryCatch({
-        ci <- np_conditional_ci(y, ct = ct, r = r_conditional, alpha = alpha)
+        ci <- dn_conditional_ci(y, ct = ct, r = r_conditional, alpha = alpha)
         if (in_ci(theta, ci)) coverage$conditional_dp_neg <- coverage$conditional_dp_neg + 1
       }, error = function(e) {
-        message(sprintf("Error in np_conditional_ci (theta=%.2f, y=%.2f): %s", theta, y, e$message))
+        message(sprintf("Error in dn_conditional_ci (theta=%.2f, y=%.2f): %s", theta, y, e$message))
       })
 
-      # Modified Pratt - Positive
+      # Modified Pratt (symmetric)
       tryCatch({
         ci <- mp_conditional_ci(y, ct = ct, r = r_conditional, alpha = alpha)
-        if (in_ci(theta, ci)) coverage$conditional_mp_pos <- coverage$conditional_mp_pos + 1
+        if (in_ci(theta, ci)) coverage$conditional_mp <- coverage$conditional_mp + 1
       }, error = function(e) {
         message(sprintf("Error in mp_conditional_ci (theta=%.2f, y=%.2f): %s", theta, y, e$message))
-      })
-
-      # Modified Pratt - Negative
-      tryCatch({
-        ci_pos <- mp_conditional_ci(-y, ct = ct, r = r_conditional, alpha = alpha)
-        ci <- c(NA_real_, NA_real_, -ci_pos[4], -ci_pos[3])
-        if (in_ci(theta, ci)) coverage$conditional_mp_neg <- coverage$conditional_mp_neg + 1
-      }, error = function(e) {
-        message(sprintf("Error in mp_conditional_ci neg (theta=%.2f, y=%.2f): %s", theta, y, e$message))
       })
 
       # Shortest
@@ -174,14 +154,12 @@ simulate_coverage_single_theta <- function(theta,
     # Marginal coverage
     marginal_dp_pos = coverage$marginal_dp_pos / K,
     marginal_dp_neg = coverage$marginal_dp_neg / K,
-    marginal_mp_pos = coverage$marginal_mp_pos / K,
-    marginal_mp_neg = coverage$marginal_mp_neg / K,
+    marginal_mp = coverage$marginal_mp / K,
     marginal_shortest = coverage$marginal_shortest / K,
     # Conditional coverage (denominator is n_significant)
     conditional_dp_pos = if (n_significant > 0) coverage$conditional_dp_pos / n_significant else NA_real_,
     conditional_dp_neg = if (n_significant > 0) coverage$conditional_dp_neg / n_significant else NA_real_,
-    conditional_mp_pos = if (n_significant > 0) coverage$conditional_mp_pos / n_significant else NA_real_,
-    conditional_mp_neg = if (n_significant > 0) coverage$conditional_mp_neg / n_significant else NA_real_,
+    conditional_mp = if (n_significant > 0) coverage$conditional_mp / n_significant else NA_real_,
     conditional_shortest = if (n_significant > 0) coverage$conditional_shortest / n_significant else NA_real_
   )
 }
@@ -242,26 +220,24 @@ plot_coverage <- function(results, alpha = 0.05) {
   nominal_coverage <- 1 - alpha
 
   # Reshape marginal data to long format using base R
-  marginal_cols <- c("marginal_shortest", "marginal_dp_pos", "marginal_dp_neg",
-                     "marginal_mp_pos", "marginal_mp_neg")
+  marginal_cols <- c("marginal_shortest", "marginal_dp_pos", "marginal_dp_neg", "marginal_mp")
   marginal_long <- data.frame(
     theta = rep(results$theta, length(marginal_cols)),
     method = rep(gsub("marginal_", "", marginal_cols), each = nrow(results)),
     coverage = unlist(results[marginal_cols])
   )
   marginal_long$method <- factor(marginal_long$method,
-                                  levels = c("shortest", "dp_pos", "dp_neg", "mp_pos", "mp_neg"))
+                                  levels = c("shortest", "dp_pos", "dp_neg", "mp"))
 
   # Reshape conditional data to long format
-  conditional_cols <- c("conditional_shortest", "conditional_dp_pos", "conditional_dp_neg",
-                        "conditional_mp_pos", "conditional_mp_neg")
+  conditional_cols <- c("conditional_shortest", "conditional_dp_pos", "conditional_dp_neg", "conditional_mp")
   conditional_long <- data.frame(
     theta = rep(results$theta, length(conditional_cols)),
     method = rep(gsub("conditional_", "", conditional_cols), each = nrow(results)),
     coverage = unlist(results[conditional_cols])
   )
   conditional_long$method <- factor(conditional_long$method,
-                                     levels = c("shortest", "dp_pos", "dp_neg", "mp_pos", "mp_neg"))
+                                     levels = c("shortest", "dp_pos", "dp_neg", "mp"))
 
   # Plot marginal coverage
   p_marginal <- ggplot(marginal_long, aes(x = theta, y = coverage, color = method)) +
@@ -361,10 +337,8 @@ cat(sprintf("  DP Positive: %.3f (min) - %.3f (max)\n",
             min(results$marginal_dp_pos), max(results$marginal_dp_pos)))
 cat(sprintf("  DP Negative: %.3f (min) - %.3f (max)\n",
             min(results$marginal_dp_neg), max(results$marginal_dp_neg)))
-cat(sprintf("  MP Positive: %.3f (min) - %.3f (max)\n",
-            min(results$marginal_mp_pos), max(results$marginal_mp_pos)))
-cat(sprintf("  MP Negative: %.3f (min) - %.3f (max)\n",
-            min(results$marginal_mp_neg), max(results$marginal_mp_neg)))
+cat(sprintf("  MP:          %.3f (min) - %.3f (max)\n",
+            min(results$marginal_mp), max(results$marginal_mp)))
 
 cat("\nConditional CI Coverage (should be >= ", 1 - alpha, "):\n", sep = "")
 cat(sprintf("  Shortest:    %.3f (min) - %.3f (max)\n",
@@ -376,9 +350,6 @@ cat(sprintf("  DP Positive: %.3f (min) - %.3f (max)\n",
 cat(sprintf("  DP Negative: %.3f (min) - %.3f (max)\n",
             min(results$conditional_dp_neg, na.rm = TRUE),
             max(results$conditional_dp_neg, na.rm = TRUE)))
-cat(sprintf("  MP Positive: %.3f (min) - %.3f (max)\n",
-            min(results$conditional_mp_pos, na.rm = TRUE),
-            max(results$conditional_mp_pos, na.rm = TRUE)))
-cat(sprintf("  MP Negative: %.3f (min) - %.3f (max)\n",
-            min(results$conditional_mp_neg, na.rm = TRUE),
-            max(results$conditional_mp_neg, na.rm = TRUE)))
+cat(sprintf("  MP:          %.3f (min) - %.3f (max)\n",
+            min(results$conditional_mp, na.rm = TRUE),
+            max(results$conditional_mp, na.rm = TRUE)))

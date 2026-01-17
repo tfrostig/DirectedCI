@@ -152,18 +152,18 @@ diff_from_shortest_given_lb <- function(target_len, lb, theta, ct, alpha) {
 #' @param ct Numeric. Critical value.
 #' @param alpha Numeric. Significance level.
 #' @param lower_ci_bound Logical. Finding lower (TRUE) or upper (FALSE) CI bound.
-#'
+#' @param bound_inflation_factor Numeric. Factor to inflate bounds. For numeric stability.
 #' @return Numeric vector of length 2: search interval.
 #' @keywords internal
-bounds_for_ci <- function(y, ct, alpha, lower_ci_bound = TRUE) {
+bounds_for_ci <- function(y, ct, alpha, lower_ci_bound = TRUE, bound_inflation_factor=0.05) {
   large_bound <- c(-1 / EPS, 1 / EPS)
 
   if (!lower_ci_bound) {
     f <- function(theta) quantile_tn_outer(EPS, theta, ct) - y
-    theta_lower_bound <- uniroot(f, large_bound)$root
+    theta_upper_bound <- uniroot(f, large_bound)$root
 
     f <- function(theta) quantile_tn_outer(alpha, theta, ct) - y
-    theta_upper_bound <- uniroot(f, large_bound)$root
+    theta_lower_bound <- uniroot(f, large_bound)$root
   } else {
     f <- function(theta) quantile_tn_outer(1 - EPS, theta, ct) - y
     theta_lower_bound <- uniroot(f, large_bound)$root
@@ -172,7 +172,8 @@ bounds_for_ci <- function(y, ct, alpha, lower_ci_bound = TRUE) {
     theta_upper_bound <- uniroot(f, large_bound)$root
   }
 
-  c(theta_lower_bound, theta_upper_bound)
+   c(theta_lower_bound - bound_inflation_factor * abs(theta_lower_bound),
+     theta_upper_bound + bound_inflation_factor * abs(theta_upper_bound))
 }
 
 #' Invert acceptance regions to get CI

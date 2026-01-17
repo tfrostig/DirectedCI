@@ -55,9 +55,9 @@ direction_preferring_conditional_ci <- function(y,
 
   # Compute CI on Z-scale
   if (direction == "positive") {
-    ci_z <- pp_conditional_ci(y = z, ct = ct, r = r, alpha = alpha)
+    ci_z <- dp_conditional_ci(y = z, ct = ct, r = r, alpha = alpha)
   } else {
-    ci_z <- np_conditional_ci(y = z, ct = ct, r = r, alpha = alpha)
+    ci_z <- dn_conditional_ci(y = z, ct = ct, r = r, alpha = alpha)
   }
 
   # Transform back to original scale
