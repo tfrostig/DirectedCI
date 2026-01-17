@@ -77,12 +77,12 @@ test_that("dp vs dn marginal CI symmetry holds", {
 
   # dn_marginal_ci(y) should equal reflected dp_marginal_ci(-y)
   ci_pos_reflected <- dp_marginal_ci(-y, r_l = r, alpha = alpha)
-  ci_refl <- c(NA_real_, NA_real_, -ci_pos_reflected[4], -ci_pos_reflected[3])
+  ci_refl <- c(-ci_pos_reflected[2], -ci_pos_reflected[1])
 
   expect_equal(ci_neg, ci_refl, tolerance = tol)
 
-  # bounds should be ordered (positions 3 and 4)
-  expect_lte(ci_neg[3], ci_neg[4])
+  # bounds should be ordered
+  expect_lte(ci_neg[1], ci_neg[2])
 })
 
 # =====================================================================
@@ -99,8 +99,7 @@ test_that("direction_preferring_marginal_ci standardization + rescaling is corre
   # Manual standardization
   z <- y / sd
   ci_z <- dp_marginal_ci(z, r_l = r, alpha = alpha)
-  ci_manual <- ci_z
-  ci_manual[3:4] <- sd * ci_z[3:4]
+  ci_manual <- sd * ci_z
 
   ci_wrapper <- direction_preferring_marginal_ci(
     y = y,
@@ -110,7 +109,7 @@ test_that("direction_preferring_marginal_ci standardization + rescaling is corre
     direction = "positive"
   )
 
-  expect_equal(ci_wrapper[3:4], ci_manual[3:4], tolerance = tol)
+  expect_equal(ci_wrapper, ci_manual, tolerance = tol)
 })
 
 test_that("modified_pratt_marginal_ci standardization + rescaling is correct", {
@@ -123,8 +122,7 @@ test_that("modified_pratt_marginal_ci standardization + rescaling is correct", {
   # Manual standardization
   z <- y / sd
   ci_z <- mp_marginal_ci(z, r = r, alpha = alpha)
-  ci_manual <- ci_z
-  ci_manual[3:4] <- sd * ci_z[3:4]
+  ci_manual <- sd * ci_z
 
   ci_wrapper <- modified_pratt_marginal_ci(
     y = y,
@@ -134,7 +132,7 @@ test_that("modified_pratt_marginal_ci standardization + rescaling is correct", {
     direction = "positive"
   )
 
-  expect_equal(ci_wrapper[3:4], ci_manual[3:4], tolerance = tol)
+  expect_equal(ci_wrapper, ci_manual, tolerance = tol)
 })
 
 test_that("shortest_marginal_ci_wrapper standardization + rescaling is correct", {
@@ -146,8 +144,7 @@ test_that("shortest_marginal_ci_wrapper standardization + rescaling is correct",
   # Manual standardization
   z <- y / sd
   ci_z <- shortest_marginal_ci(z, alpha = alpha)
-  ci_manual <- ci_z
-  ci_manual[3:4] <- sd * ci_z[3:4]
+  ci_manual <- sd * ci_z
 
   ci_wrapper <- shortest_marginal_ci_wrapper(
     y = y,
@@ -155,7 +152,7 @@ test_that("shortest_marginal_ci_wrapper standardization + rescaling is correct",
     alpha = alpha
   )
 
-  expect_equal(ci_wrapper[3:4], ci_manual[3:4], tolerance = tol)
+  expect_equal(ci_wrapper, ci_manual, tolerance = tol)
 })
 
 # =====================================================================
@@ -176,10 +173,9 @@ test_that("negative direction wrapper matches reflected positive CI", {
   # Manual reflection using dn_marginal_ci
   z <- y / sd
   ci_dn <- dn_marginal_ci(z, r_l = r, alpha = alpha)
-  ci_manual <- ci_dn
-  ci_manual[3:4] <- sd * ci_dn[3:4]
+  ci_manual <- sd * ci_dn
 
-  expect_equal(ci_neg[3:4], ci_manual[3:4], tolerance = tol)
+  expect_equal(ci_neg, ci_manual, tolerance = tol)
 })
 
 # =====================================================================
@@ -198,23 +194,23 @@ test_that("Marginal CI bounds are ordered and finite", {
     ci_dp <- direction_preferring_marginal_ci(
       y, sd, r, alpha, direction = "positive"
     )
-    expect_true(is.finite(ci_dp[3]))
-    expect_true(is.finite(ci_dp[4]))
-    expect_lte(ci_dp[3], ci_dp[4])
+    expect_true(is.finite(ci_dp[1]))
+    expect_true(is.finite(ci_dp[2]))
+    expect_lte(ci_dp[1], ci_dp[2])
 
     # Modified Pratt
     ci_mp <- modified_pratt_marginal_ci(
       y, sd, r = 1.3, alpha, direction = "positive"
     )
-    expect_true(is.finite(ci_mp[3]))
-    expect_true(is.finite(ci_mp[4]))
-    expect_lte(ci_mp[3], ci_mp[4])
+    expect_true(is.finite(ci_mp[1]))
+    expect_true(is.finite(ci_mp[2]))
+    expect_lte(ci_mp[1], ci_mp[2])
 
     # Shortest
     ci_short <- shortest_marginal_ci_wrapper(y, sd, alpha)
-    expect_true(is.finite(ci_short[3]))
-    expect_true(is.finite(ci_short[4]))
-    expect_lte(ci_short[3], ci_short[4])
+    expect_true(is.finite(ci_short[1]))
+    expect_true(is.finite(ci_short[2]))
+    expect_lte(ci_short[1], ci_short[2])
   }
 })
 
@@ -235,8 +231,8 @@ test_that("Shortest marginal CI is symmetric around y", {
   expected_lower <- y - z_alpha * sd
   expected_upper <- y + z_alpha * sd
 
-  expect_equal(ci[3], expected_lower, tolerance = tol)
-  expect_equal(ci[4], expected_upper, tolerance = tol)
+  expect_equal(ci[1], expected_lower, tolerance = tol)
+  expect_equal(ci[2], expected_upper, tolerance = tol)
 })
 
 # =====================================================================
@@ -260,12 +256,12 @@ test_that("True parameter is contained in CI for various y values", {
   # Check that a reasonable proportion contain theta
   coverage_dp <- mean(sapply(y_samples, function(y) {
     ci <- direction_preferring_marginal_ci(y, sd, r, alpha, "positive")
-    theta >= ci[3] && theta <= ci[4]
+    theta >= ci[1] && theta <= ci[2]
   }))
 
   coverage_short <- mean(sapply(y_samples, function(y) {
     ci <- shortest_marginal_ci_wrapper(y, sd, alpha)
-    theta >= ci[3] && theta <= ci[4]
+    theta >= ci[1] && theta <= ci[2]
   }))
 
   # Coverage should be close to nominal (with some Monte Carlo error)
@@ -285,19 +281,19 @@ test_that("Extremely large y values produce finite output", {
   alpha <- 0.05
 
   ci_dp <- direction_preferring_marginal_ci(y, sd, r, alpha, "positive")
-  expect_true(is.finite(ci_dp[3]))
-  expect_true(is.finite(ci_dp[4]))
-  expect_lte(ci_dp[3], ci_dp[4])
+  expect_true(is.finite(ci_dp[1]))
+  expect_true(is.finite(ci_dp[2]))
+  expect_lte(ci_dp[1], ci_dp[2])
 
   ci_mp <- modified_pratt_marginal_ci(y, sd, r = 1.3, alpha, "positive")
-  expect_true(is.finite(ci_mp[3]))
-  expect_true(is.finite(ci_mp[4]))
-  expect_lte(ci_mp[3], ci_mp[4])
+  expect_true(is.finite(ci_mp[1]))
+  expect_true(is.finite(ci_mp[2]))
+  expect_lte(ci_mp[1], ci_mp[2])
 
   ci_short <- shortest_marginal_ci_wrapper(y, sd, alpha)
-  expect_true(is.finite(ci_short[3]))
-  expect_true(is.finite(ci_short[4]))
-  expect_lte(ci_short[3], ci_short[4])
+  expect_true(is.finite(ci_short[1]))
+  expect_true(is.finite(ci_short[2]))
+  expect_lte(ci_short[1], ci_short[2])
 })
 
 test_that("Extremely negative y values produce finite output", {
@@ -308,19 +304,19 @@ test_that("Extremely negative y values produce finite output", {
   alpha <- 0.05
 
   ci_dp <- direction_preferring_marginal_ci(y, sd, r, alpha, "positive")
-  expect_true(is.finite(ci_dp[3]))
-  expect_true(is.finite(ci_dp[4]))
-  expect_lte(ci_dp[3], ci_dp[4])
+  expect_true(is.finite(ci_dp[1]))
+  expect_true(is.finite(ci_dp[2]))
+  expect_lte(ci_dp[1], ci_dp[2])
 
   ci_mp <- modified_pratt_marginal_ci(y, sd, r = 1.3, alpha, "positive")
-  expect_true(is.finite(ci_mp[3]))
-  expect_true(is.finite(ci_mp[4]))
-  expect_lte(ci_mp[3], ci_mp[4])
+  expect_true(is.finite(ci_mp[1]))
+  expect_true(is.finite(ci_mp[2]))
+  expect_lte(ci_mp[1], ci_mp[2])
 
   ci_short <- shortest_marginal_ci_wrapper(y, sd, alpha)
-  expect_true(is.finite(ci_short[3]))
-  expect_true(is.finite(ci_short[4]))
-  expect_lte(ci_short[3], ci_short[4])
+  expect_true(is.finite(ci_short[1]))
+  expect_true(is.finite(ci_short[2]))
+  expect_lte(ci_short[1], ci_short[2])
 })
 
 # =====================================================================
@@ -334,5 +330,5 @@ test_that("DP marginal CI with r=1 equals shortest CI", {
   ci_dp <- dp_marginal_ci(y, r_l = 1, alpha = alpha)
   ci_short <- shortest_marginal_ci(y, alpha = alpha)
 
-  expect_equal(ci_dp[3:4], ci_short[3:4], tolerance = tol)
+  expect_equal(ci_dp, ci_short, tolerance = tol)
 })

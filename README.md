@@ -123,14 +123,12 @@ For advanced users working on the standardized scale (Y ~ N(θ, 1)):
 
 ## Return Value
 
-All CI functions return a numeric vector of length 4: `c(ll, ul, lr, ur)`
-- Positions 3 and 4 (`lr`, `ur`) contain the lower and upper CI bounds
-- Positions 1 and 2 are used for split intervals (NA for single intervals)
+All CI functions return a numeric vector of length 2: `c(lower, upper)` containing the lower and upper CI bounds.
 
 ```r
 ci <- direction_preferring_marginal_ci(y = 3, sd = 1, r = 1.5, direction = "positive")
-lower_bound <- ci[3]
-upper_bound <- ci[4]
+lower_bound <- ci[1]
+upper_bound <- ci[2]
 ```
 
 ## Marginal vs Conditional CIs
@@ -168,7 +166,7 @@ for (i in significant) {
     alpha = alpha,
     direction = "positive"
   )
-  cat(sprintf("Study %d: [%.3f, %.3f]\n", i, ci[3], ci[4]))
+  cat(sprintf("Study %d: [%.3f, %.3f]\n", i, ci[1], ci[2]))
 }
 ```
 

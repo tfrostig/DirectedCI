@@ -79,7 +79,7 @@ dp_conditional_ar <- function(theta, ct = qnorm(0.975), r = 1.3, alpha = 0.05) {
 #' @param r Numeric >= 1. Inflation factor. Default 1.3.
 #' @param alpha Numeric in (0, 1). Significance level. Default 0.05.
 #'
-#' @return Numeric vector of length 4: c(ll, ul, lr, ur).
+#' @return Numeric vector of length 2: c(lower, upper).
 #'
 #' @examples
 #' dp_conditional_ci(y = 2.5, ct = qnorm(0.975), r = 1.3, alpha = 0.05)
@@ -153,7 +153,7 @@ dp_conditional_ci <- function(y, ct = qnorm(0.975), r = 1.3, alpha = 0.05) {
     upper_bound <- uniroot(ub_function, upper_interval)$root
   }
 
-  c(NA_real_, NA_real_, lower_bound, upper_bound)
+  c(lower_bound, upper_bound)
 }
 
 #' Direction Preferring Conditional CI (Negative Direction)
@@ -166,10 +166,10 @@ dp_conditional_ci <- function(y, ct = qnorm(0.975), r = 1.3, alpha = 0.05) {
 #' @param r Numeric >= 1. Inflation factor. Default 1.3.
 #' @param alpha Numeric in (0, 1). Significance level. Default 0.05.
 #'
-#' @return Numeric vector of length 4: c(ll, ul, lr, ur).
+#' @return Numeric vector of length 2: c(lower, upper).
 #'
 #' @export
 dn_conditional_ci <- function(y, ct = qnorm(0.975), r = 1.3, alpha = 0.05) {
   ci_neg <- dp_conditional_ci(-y, ct, r, alpha)
-  c(NA_real_, NA_real_, -ci_neg[4], -ci_neg[3])
+  c(-ci_neg[2], -ci_neg[1])
 }

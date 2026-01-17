@@ -37,8 +37,7 @@ shortest_marginal_ar <- function(theta, alpha = 0.05) {
 #' @param y Numeric. Observed test statistic (on Z-scale).
 #' @param alpha Numeric in (0, 1). Significance level. Default 0.05.
 #'
-#' @return Numeric vector of length 4: c(ll, ul, lr, ur).
-#'   For a single interval, returns c(NA, NA, lower, upper).
+#' @return Numeric vector of length 2: c(lower, upper).
 #'
 #' @examples
 #' shortest_marginal_ci(y = 1.5, alpha = 0.05)
@@ -46,5 +45,5 @@ shortest_marginal_ar <- function(theta, alpha = 0.05) {
 #' @export
 shortest_marginal_ci <- function(y, alpha = 0.05) {
   z <- qnorm(1 - alpha / 2)
-  c(NA_real_, NA_real_, y - z, y + z)
+  c(y - z, y + z)
 }

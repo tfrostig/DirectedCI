@@ -247,18 +247,18 @@ plot_ci_comparison <- function(estimates,
         "standard" = {
           # Unadjusted standard CI
           ci <- shortest_marginal_ci(z, alpha = alpha)
-          ci[3:4] * s
+          ci * s
         },
         "bonferroni" = {
           # Bonferroni-adjusted CI
           bonf_alpha <- alpha / m
           ci <- shortest_marginal_ci(z, alpha = bonf_alpha)
-          ci[3:4] * s
+          ci * s
         },
         "by_standard" = {
           # BY-adjusted standard CI
           ci <- shortest_marginal_ci(z, alpha = by_alpha)
-          ci[3:4] * s
+          ci * s
         },
         "by_dp" = {
           # BY-adjusted direction-preferring CI
@@ -267,18 +267,18 @@ plot_ci_comparison <- function(estimates,
           } else {
             ci <- dn_marginal_ci(z, r_l = r_l, alpha = by_alpha)
           }
-          ci[3:4] * s
+          ci * s
         },
         "by_mp" = {
           # BY-adjusted modified Pratt CI
           ci <- mp_marginal_ci(z, r = r, alpha = by_alpha)
-          ci[3:4] * s
+          ci * s
         },
         "cond_standard" = {
           # Conditional standard CI
           tryCatch({
             ci <- shortest_conditional_ci(z, ct = ct, alpha = alpha)
-            ci[3:4] * s
+            ci * s
           }, error = function(e) c(NA, NA))
         },
         "cond_dp" = {
@@ -289,14 +289,14 @@ plot_ci_comparison <- function(estimates,
             } else {
               ci <- dn_conditional_ci(z, ct = ct, r = r, alpha = alpha)
             }
-            ci[3:4] * s
+            ci * s
           }, error = function(e) c(NA, NA))
         },
         "cond_mp" = {
           # Conditional modified Pratt CI
           tryCatch({
             ci <- mp_conditional_ci(z, ct = ct, r = r, alpha = alpha)
-            ci[3:4] * s
+            ci * s
           }, error = function(e) c(NA, NA))
         },
         stop(paste("Unknown method:", method))

@@ -16,8 +16,7 @@
 #' @param direction Character. Either "positive" or "negative". Default "positive".
 #' @param mean Numeric. Mean of the estimator (for centering). Default 0.
 #'
-#' @return Numeric vector of length 4: c(ll, ul, lr, ur) on original scale.
-#'   For single interval, two values will be NA.
+#' @return Numeric vector of length 2: c(lower, upper) on original scale.
 #'
 #' @details
 #' The conditional CI is valid only when the observed statistic is significant,
@@ -61,10 +60,7 @@ direction_preferring_conditional_ci <- function(y,
   }
 
   # Transform back to original scale
-  ci_original <- ci_z
-  ci_original[3:4] <- mean + sd * ci_z[3:4]
-
-  ci_original
+  mean + sd * ci_z
 }
 
 #' Modified Pratt Conditional Confidence Interval
@@ -80,7 +76,7 @@ direction_preferring_conditional_ci <- function(y,
 #' @param direction Character. Either "positive" or "negative". Default "positive".
 #' @param mean Numeric. Mean of the estimator (for centering). Default 0.
 #'
-#' @return Numeric vector of length 4: c(ll, ul, lr, ur) on original scale.
+#' @return Numeric vector of length 2: c(lower, upper) on original scale.
 #'
 #' @examples
 #' modified_pratt_conditional_ci(y = 3.0, sd = 1.0, ct = qnorm(0.975),
@@ -116,14 +112,11 @@ modified_pratt_conditional_ci <- function(y,
   } else {
     # Use reflection for negative direction
     ci_z_pos <- mp_conditional_ci(y = -z, ct = ct, r = r, alpha = alpha)
-    ci_z <- c(NA_real_, NA_real_, -ci_z_pos[4], -ci_z_pos[3])
+    ci_z <- c(-ci_z_pos[2], -ci_z_pos[1])
   }
 
   # Transform back to original scale
-  ci_original <- ci_z
-  ci_original[3:4] <- mean + sd * ci_z[3:4]
-
-  ci_original
+  mean + sd * ci_z
 }
 
 #' Shortest Conditional Confidence Interval
@@ -137,7 +130,7 @@ modified_pratt_conditional_ci <- function(y,
 #' @param alpha Numeric in (0, 1). Significance level. Default 0.05.
 #' @param mean Numeric. Mean of the estimator (for centering). Default 0.
 #'
-#' @return Numeric vector of length 4: c(ll, ul, lr, ur) on original scale.
+#' @return Numeric vector of length 2: c(lower, upper) on original scale.
 #'
 #' @details
 #' The shortest CI is symmetric and does not have a direction parameter.
@@ -170,8 +163,5 @@ shortest_conditional_ci_wrapper <- function(y,
   ci_z <- shortest_conditional_ci(y = z, ct = ct, alpha = alpha)
 
   # Transform back to original scale
-  ci_original <- ci_z
-  ci_original[3:4] <- mean + sd * ci_z[3:4]
-
-  ci_original
+  mean + sd * ci_z
 }
