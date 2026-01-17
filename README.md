@@ -131,15 +131,6 @@ lower_bound <- ci[1]
 upper_bound <- ci[2]
 ```
 
-## Marginal vs Conditional CIs
-
-| Aspect | Marginal | Conditional |
-|--------|----------|-------------|
-| **Use case** | General inference | Post-selection inference |
-| **Requirement** | None | Observation must be significant: \|y/sd\| > ct |
-| **Selection bias** | Not corrected | Corrected |
-| **Multiple testing** | Use with BY adjustment for FCR control | Valid without adjustment |
-
 ## Example: Meta-Analysis with Selection
 
 ```r
