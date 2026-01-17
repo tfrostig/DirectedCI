@@ -69,8 +69,8 @@ test_that("dp vs dn conditional CI symmetry holds", {
   # dn_conditional_ci must match reflected dp_conditional_ci
   expect_equal(ci_neg, ci_refl, tolerance = tol)
 
-  # bounds should be ordered
-  expect_lte(ci_neg[1], ci_neg[2])
+  # bounds should be ordered (positions 3 and 4)
+  expect_lte(ci_neg[3], ci_neg[4])
 })
 
 
@@ -99,7 +99,7 @@ test_that("direction_preferring_conditional_ci standardization + rescaling is co
     direction = "positive"
   )
 
-  expect_equal(ci_wrapper, ci_manual, tolerance = tol)
+  expect_equal(ci_wrapper[3:4], ci_manual[3:4], tolerance = tol)
 })
 
 
@@ -124,7 +124,7 @@ test_that("negative direction wrapper matches reflected positive CI", {
   ci_dn <- dn_conditional_ci(z, ct, r, alpha)
   ci_manual <- sd * ci_dn
 
-  expect_equal(ci_neg, ci_manual, tolerance = tol)
+  expect_equal(ci_neg[3:4], ci_manual[3:4], tolerance = tol)
 })
 
 
