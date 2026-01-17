@@ -65,8 +65,7 @@ mp_marginal_ar <- function(theta, r = 1.3, alpha = 0.05) {
 #' @param r Numeric >= 1. Inflation factor. Default 1.3.
 #' @param alpha Numeric in (0, 1). Significance level. Default 0.05.
 #'
-#' @return Numeric vector of length 4: c(ll, ul, lr, ur).
-#'   For single interval, returns c(NA, NA, lower, upper).
+#' @return Numeric vector of length 2: c(lower, upper).
 #'
 #' @examples
 #' mp_marginal_ci(y = 1.5, r = 1.3, alpha = 0.05)
@@ -75,11 +74,10 @@ mp_marginal_ar <- function(theta, r = 1.3, alpha = 0.05) {
 #' @export
 mp_marginal_ci <- function(y, r = 1.3, alpha = 0.05) {
   # Use symmetry: for positive y, compute for -y and reflect
-
-if (y > 0) {
+  if (y > 0) {
     ci <- mp_marginal_ci(-y, r, alpha)
     # Reflect: swap and negate
-    return(c(NA_real_, NA_real_, -ci[4], -ci[3]))
+    return(c(-ci[2], -ci[1]))
   }
 
   f <- function(beta) {
@@ -104,5 +102,5 @@ if (y > 0) {
     upper <- y - qnorm(alpha - beta_star)
   }
 
-  c(NA_real_, NA_real_, lower, upper)
+  c(lower, upper)
 }

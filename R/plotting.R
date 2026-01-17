@@ -247,18 +247,18 @@ plot_ci_comparison <- function(estimates,
         "standard" = {
           # Unadjusted standard CI
           ci <- shortest_marginal_ci(z, alpha = alpha)
-          ci[3:4] * s
+          ci * s
         },
         "bonferroni" = {
           # Bonferroni-adjusted CI
           bonf_alpha <- alpha / m
           ci <- shortest_marginal_ci(z, alpha = bonf_alpha)
-          ci[3:4] * s
+          ci * s
         },
         "by_standard" = {
           # BY-adjusted standard CI
           ci <- shortest_marginal_ci(z, alpha = by_alpha)
-          ci[3:4] * s
+          ci * s
         },
         "by_dp" = {
           # BY-adjusted direction-preferring CI
@@ -267,18 +267,18 @@ plot_ci_comparison <- function(estimates,
           } else {
             ci <- dn_marginal_ci(z, r_l = r_l, alpha = by_alpha)
           }
-          ci[3:4] * s
+          ci * s
         },
         "by_mp" = {
           # BY-adjusted modified Pratt CI
           ci <- mp_marginal_ci(z, r = r, alpha = by_alpha)
-          ci[3:4] * s
+          ci * s
         },
         "cond_standard" = {
           # Conditional standard CI
           tryCatch({
             ci <- shortest_conditional_ci(z, ct = ct, alpha = alpha)
-            ci[3:4] * s
+            ci * s
           }, error = function(e) c(NA, NA))
         },
         "cond_dp" = {
@@ -289,14 +289,14 @@ plot_ci_comparison <- function(estimates,
             } else {
               ci <- dn_conditional_ci(z, ct = ct, r = r, alpha = alpha)
             }
-            ci[3:4] * s
+            ci * s
           }, error = function(e) c(NA, NA))
         },
         "cond_mp" = {
           # Conditional modified Pratt CI
           tryCatch({
             ci <- mp_conditional_ci(z, ct = ct, r = r, alpha = alpha)
-            ci[3:4] * s
+            ci * s
           }, error = function(e) c(NA, NA))
         },
         stop(paste("Unknown method:", method))
@@ -446,88 +446,12 @@ compute_r_l_from_inflation <- function(r, alpha = 0.05) {
     alpha / 2
   })
 
-  # r_l is the ratio of target length to standard length
-  # But for dp_marginal_ci, r_l represents how much to shrink
-  # We need the length of the "inflated" AR relative to standard
-  # Actually r_l is already the inflation factor in this context
-
-  # Let's reconsider: in dp_marginal_ci, r_l is used to compute target_len_l
-  # target_len_l <- r_l * 2 * z_alpha2
-  # So if we want inflation r, r_l should be r
-  # But r_l is documented as being in [0, 1]
-
-
-  # Looking at the code more carefully:
-  # For theta < 0 and not near boundary, the AR length is target_len_l = r_l * 2 * z_alpha2
-  # So r_l = 0.5 means the AR is half the standard length (shorter)
-  # r_l = 1 means the AR equals the standard length
-
-  # For direction-preferring, we want SHORTER intervals in the preferred direction
-  # and potentially LONGER in the non-preferred direction
-
-  # From the paper, the default r = 1.3 means the AR is inflated by 1.3x for non-preferred
-  # So for positive preference, when theta <= 0, we inflate
-
-  # The r_l parameter controls the length ratio
-  # Since the docs say r_l in [0,1], and r = 1 gives standard,
-  # we need r_l = 1/r perhaps? No...
-
-  # Let me look at this differently:
-  # epsilon in paper corresponds to tail probability adjustment
-  # For r = 1.3, epsilon = 2.4e-4 (from paper)
-
-  # Let's just use a heuristic: if r > 1, compute the epsilon
   if (r == 1) {
     return(1)  # Standard case
   }
 
-  # For r > 1, we need epsilon such that the inflated AR has length r * standard
-  # Actually, from the marginal CI code, r_l is used directly as a multiplier
-  # Let's trace through: r_l goes into target_len_l = r_l * 2 * z_alpha2
-  # This is the TARGET length, so if r_l < 1, target is SHORTER
-
-  # But wait - for direction-preferring, we want to SHORTEN in preferred direction
-  # and that's what happens for theta > 0 (using r_u = 1)
-  # For theta < 0, we use r_l to make it longer (for sign determination)
-
-  # Hmm, the r_l documentation says [0, 1] but the inflation factor r >= 1
-  # These are different concepts
-
-  # Looking at the paper's formulation:
-  # - For positive preference and theta <= 0, AR is LONGER (up to r times standard)
-  # - For positive preference and theta > 0, AR equals standard
-
-  # So for the marginal case, r_l actually controls shortening:
-  # r_l = 1 means no shortening (standard)
-  # r_l < 1 means shorter AR
-
-  # The confusion is that in marginal we use r_l for shortening,
-  # but in conditional we use r for inflation
-
-  # For now, let's use: r_l controls how much to shrink the non-preferred side
-  # To match inflation factor r in the paper, we'd need custom logic
-
-  # Simplified approach: use r_l that gives roughly equivalent behavior
-  # Based on paper's analysis, r = 1.3 corresponds to epsilon = 2.4e-4
-
-  # Actually, looking at dp_marginal_ci more carefully:
-  # It uses r_l=0.5 type values to get the direction preference effect
-  # Let's compute what r_l gives inflation factor r
-
-  # From the equations: length = qnorm(1-(alpha-beta)) - qnorm(beta)
-  # We want length = r * standard_length
-
-  # For r = 1.3, we need to find what r_l achieves this
-  # But r_l < 1 gives SHORTER intervals, not longer
-
-  # I think there might be a mismatch in conventions
   # Let's just return r directly for now since the wrapper can handle it
   r_l <- r  # This will be handled by the internal functions properly
-
-  # Actually, re-reading dp_marginal_ar:
-  # target_len_l <- r_l * 2 * z_alpha2
-  # If r_l = 1.3, target_len_l = 1.3 * standard_length
-  # So r_l IS the inflation factor
 
   return(r)
 }

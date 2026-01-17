@@ -104,7 +104,7 @@ This section demonstrates how to use the various confidence interval methods pro
 
 ## Basic Setup
 
-All CI functions work with a single observation `y` and its standard deviation `sd`. They return a 4-element vector `c(ll, ul, lr, ur)` where positions 3 and 4 contain the lower and upper CI bounds (positions 1-2 are used for split intervals).
+All CI functions work with a single observation `y` and its standard deviation `sd`. They return a 2-element vector `c(lower, upper)` containing the lower and upper CI bounds.
 
 ```{r basic-example}
 # Example: Observed estimate with SE
@@ -122,14 +122,14 @@ Marginal CIs are valid without conditioning on selection.
 ```{r marginal-cis}
 # 1. Shortest (symmetric) CI - standard CI
 shortest_marg <- shortest_marginal_ci_wrapper(y = y, sd = sd, alpha = alpha)
-cat("Shortest Marginal CI:", round(shortest_marg[3:4], 3), "\n")
+cat("Shortest Marginal CI:", round(shortest_marg, 3), "\n")
 
 # 2. Modified Pratt CI (prefer positive direction)
 # Note: r >= 1 for MP - larger r = more asymmetry toward preferred direction
 mp_marg <- modified_pratt_marginal_ci(
   y = y, sd = sd, r = 1.5, alpha = alpha, direction = "positive"
 )
-cat("MP+ Marginal CI:     ", round(mp_marg[3:4], 3), "\n")
+cat("MP+ Marginal CI:     ", round(mp_marg, 3), "\n")
 ```
 
 ## Conditional CIs (After Selection)
@@ -145,20 +145,20 @@ sd_sig <- 1.0
 shortest_cond <- shortest_conditional_ci_wrapper(
   y = y_sig, sd = sd_sig, ct = ct, alpha = alpha
 )
-cat("Shortest Conditional CI:", round(shortest_cond[3:4], 3), "\n")
+cat("Shortest Conditional CI:", round(shortest_cond, 3), "\n")
 
 # 2. Direction-Preferring Conditional CI
 # Note: r >= 1 for conditional DP - larger r = more asymmetry
 dp_cond <- direction_preferring_conditional_ci(
   y = y_sig, sd = sd_sig, ct = ct, r = 1.3, alpha = alpha, direction = "positive"
 )
-cat("DP+ Conditional CI:     ", round(dp_cond[3:4], 3), "\n")
+cat("DP+ Conditional CI:     ", round(dp_cond, 3), "\n")
 
 # 3. Modified Pratt Conditional CI
 mp_cond <- modified_pratt_conditional_ci(
   y = y_sig, sd = sd_sig, ct = ct, r = 1.3, alpha = alpha, direction = "positive"
 )
-cat("MP+ Conditional CI:     ", round(mp_cond[3:4], 3), "\n")
+cat("MP+ Conditional CI:     ", round(mp_cond, 3), "\n")
 ```
 
 ## Comparing All Methods
@@ -168,10 +168,10 @@ cat("MP+ Conditional CI:     ", round(mp_cond[3:4], 3), "\n")
 comparison <- data.frame(
   Method = c("Shortest Marginal", "MP+ Marginal (r=1.5)",
              "Shortest Conditional", "DP+ Conditional (r=1.3)", "MP+ Conditional (r=1.3)"),
-  Lower = c(shortest_marg[3], mp_marg[3],
-            shortest_cond[3], dp_cond[3], mp_cond[3]),
-  Upper = c(shortest_marg[4], mp_marg[4],
-            shortest_cond[4], dp_cond[4], mp_cond[4])
+  Lower = c(shortest_marg[1], mp_marg[1],
+            shortest_cond[1], dp_cond[1], mp_cond[1]),
+  Upper = c(shortest_marg[2], mp_marg[2],
+            shortest_cond[2], dp_cond[2], mp_cond[2])
 )
 comparison$Width <- comparison$Upper - comparison$Lower
 comparison[, 2:4] <- round(comparison[, 2:4], 3)
@@ -260,9 +260,9 @@ for (i in seq_along(ordered_means)) {
     alpha = length(selection_indices) * alpha / num_studies
   )
 
-  # CI is returned as c(ll, ul, lr, ur); single interval uses positions 3 and 4
-  lower_marginal[i] <- marginal_ci[3] * ordered_ses[i]
-  upper_marginal[i] <- marginal_ci[4] * ordered_ses[i]
+  # CI is returned as c(lower, upper)
+  lower_marginal[i] <- marginal_ci[1] * ordered_ses[i]
+  upper_marginal[i] <- marginal_ci[2] * ordered_ses[i]
 }
 
 round(cbind(lower_marginal, upper_marginal), 3)
@@ -283,9 +283,9 @@ for (i in seq_along(ordered_means)) {
     alpha = alpha
   )
 
-  # CI is returned as c(ll, ul, lr, ur); single interval uses positions 3 and 4
-  lower_conditional[i] <- cond_ci[3] * ordered_ses[i]
-  upper_conditional[i] <- cond_ci[4] * ordered_ses[i]
+  # CI is returned as c(lower, upper)
+  lower_conditional[i] <- cond_ci[1] * ordered_ses[i]
+  upper_conditional[i] <- cond_ci[2] * ordered_ses[i]
 }
 
 round(cbind(lower_conditional, upper_conditional), 3)

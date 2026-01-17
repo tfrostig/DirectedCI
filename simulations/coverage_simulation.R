@@ -10,21 +10,13 @@ library(ggplot2)
 #' Check if theta is contained in a CI
 #'
 #' @param theta True parameter value
-#' @param ci Numeric vector of length 4: c(ll, ul, lr, ur)
+#' @param ci Numeric vector of length 2: c(lower, upper)
 #' @return Logical: TRUE if theta is in the CI
 in_ci <- function(theta, ci) {
+  lower <- ci[1]
+  upper <- ci[2]
 
-  # CI is [ll, ul] U [lr, ur]
-  # NA values indicate absence of that interval
-  ll <- ci[1]
-  ul <- ci[2]
-  lr <- ci[3]
-  ur <- ci[4]
-
-  in_left <- !is.na(ll) && !is.na(ul) && theta >= ll && theta <= ul
-in_right <- !is.na(lr) && !is.na(ur) && theta >= lr && theta <= ur
-
-  in_left || in_right
+  !is.na(lower) && !is.na(upper) && theta >= lower && theta <= upper
 }
 
 #' Run coverage simulation for a single theta value

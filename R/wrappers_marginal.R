@@ -14,12 +14,11 @@
 #' @param direction Character. Either "positive" or "negative". Default "positive".
 #' @param mean Numeric. Mean of the estimator (for centering). Default 0.
 #'
-#' @return Numeric vector of length 4: c(ll, ul, lr, ur) on original scale.
-#'   For single interval, two values will be NA.
+#' @return Numeric vector of length 2: c(lower, upper) on original scale.
 #'
 #' @examples
-#' direction_preferring_marginal_ci(y = 3.0, sd = 1.5, r = 0.5, direction = "positive")
-#' direction_preferring_marginal_ci(y = -2.0, sd = 1.0, r = 0.5, direction = "negative")
+#' direction_preferring_marginal_ci(y = 3.0, sd = 1.5, r = 1.5, direction = "positive")
+#' direction_preferring_marginal_ci(y = -2.0, sd = 1.0, r = 1.5, direction = "negative")
 #'
 #' @export
 direction_preferring_marginal_ci <- function(y,
@@ -46,10 +45,7 @@ direction_preferring_marginal_ci <- function(y,
   }
 
   # Transform back to original scale
-  ci_original <- ci_z
-  ci_original[3:4] <- mean + sd * ci_z[3:4]
-
-  ci_original
+  mean + sd * ci_z
 }
 
 #' Modified Pratt Marginal Confidence Interval
@@ -64,7 +60,7 @@ direction_preferring_marginal_ci <- function(y,
 #' @param direction Character. Either "positive" or "negative". Default "positive".
 #' @param mean Numeric. Mean of the estimator (for centering). Default 0.
 #'
-#' @return Numeric vector of length 4: c(ll, ul, lr, ur) on original scale.
+#' @return Numeric vector of length 2: c(lower, upper) on original scale.
 #'
 #' @examples
 #' modified_pratt_marginal_ci(y = 2.5, sd = 1.0, r = 1.3, direction = "positive")
@@ -92,14 +88,11 @@ modified_pratt_marginal_ci <- function(y,
   } else {
     # Use reflection for negative direction
     ci_z_pos <- mp_marginal_ci(y = -z, r = r, alpha = alpha)
-    ci_z <- c(NA_real_, NA_real_, -ci_z_pos[4], -ci_z_pos[3])
+    ci_z <- c(-ci_z_pos[2], -ci_z_pos[1])
   }
 
   # Transform back to original scale
-  ci_original <- ci_z
-  ci_original[3:4] <- mean + sd * ci_z[3:4]
-
-  ci_original
+  mean + sd * ci_z
 }
 
 #' Shortest Marginal Confidence Interval
@@ -112,8 +105,7 @@ modified_pratt_marginal_ci <- function(y,
 #' @param alpha Numeric in (0, 1). Significance level. Default 0.05.
 #' @param mean Numeric. Mean of the estimator (for centering). Default 0.
 #'
-#' @return Numeric vector of length 4: c(ll, ul, lr, ur) on original scale.
-#'   For the symmetric CI, returns c(NA, NA, lower, upper).
+#' @return Numeric vector of length 2: c(lower, upper) on original scale.
 #'
 #' @details
 #' The shortest CI is symmetric: y +/- z_{1-alpha/2} * sd.
@@ -139,8 +131,5 @@ shortest_marginal_ci_wrapper <- function(y,
   ci_z <- shortest_marginal_ci(y = z, alpha = alpha)
 
   # Transform back to original scale
-  ci_original <- ci_z
-  ci_original[3:4] <- mean + sd * ci_z[3:4]
-
-  ci_original
+  mean + sd * ci_z
 }

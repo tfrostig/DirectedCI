@@ -84,8 +84,7 @@ dp_marginal_ar <- function(theta, r_l, r_u = 1, switch_val = 0, alpha = 0.05) {
 #' @param r_l Numeric >= 1. Inflation factor for acceptance region.
 #' @param alpha Numeric in (0, 1). Significance level. Default 0.05.
 #'
-#' @return Numeric vector of length 4: c(ll, ul, lr, ur).
-#'   For single interval, returns c(NA, NA, lower, upper).
+#' @return Numeric vector of length 2: c(lower, upper).
 #'
 #' @examples
 #' dp_marginal_ci(y = 2.5, r_l = 1.5, alpha = 0.05)
@@ -135,7 +134,7 @@ dp_marginal_ci <- function(y, r_l, alpha = 0.05) {
     ci <- c(y - z_alpha2, y - qnorm(alpha / 2))
   }
 
-  c(NA_real_, NA_real_, ci[1], ci[2])
+  ci
 }
 
 #' Direction Preferring Marginal Confidence Interval (Negative Direction)
@@ -147,10 +146,10 @@ dp_marginal_ci <- function(y, r_l, alpha = 0.05) {
 #' @param r_l Numeric >= 1. Inflation factor for acceptance region.
 #' @param alpha Numeric in (0, 1). Significance level. Default 0.05.
 #'
-#' @return Numeric vector of length 4: c(ll, ul, lr, ur).
+#' @return Numeric vector of length 2: c(lower, upper).
 #'
 #' @export
 dn_marginal_ci <- function(y, r_l, alpha = 0.05) {
   ci_pos <- dp_marginal_ci(-y, r_l, alpha)
-  c(NA_real_, NA_real_, -ci_pos[4], -ci_pos[3])
+  c(-ci_pos[2], -ci_pos[1])
 }

@@ -83,7 +83,7 @@ mp_conditional_ar <- function(theta, ct = qnorm(0.975), r = 1.3, alpha = 0.05) {
 #' @param r Numeric >= 1. Inflation factor. Default 1.3.
 #' @param alpha Numeric in (0, 1). Significance level. Default 0.05.
 #'
-#' @return Numeric vector of length 4: c(ll, ul, lr, ur).
+#' @return Numeric vector of length 2: c(lower, upper).
 #'
 #' @examples
 #' mp_conditional_ci(y = 2.5, ct = qnorm(0.975), r = 1.3, alpha = 0.05)
@@ -94,7 +94,7 @@ mp_conditional_ci <- function(y, ct = qnorm(0.975), r = 1.3, alpha = 0.05) {
   # Use symmetry: for positive y, compute for -y and reflect
   if (sign(y) == 1) {
     ci <- mp_conditional_ci(-y, ct, r, alpha)
-    return(c(NA_real_, NA_real_, -ci[4], -ci[3]))
+    return(c(-ci[2], -ci[1]))
   }
 
   # Regime change points
@@ -142,5 +142,5 @@ mp_conditional_ci <- function(y, ct = qnorm(0.975), r = 1.3, alpha = 0.05) {
     upper_bound <- uniroot(ub_function, upper_interval)$root
   }
 
-  c(NA_real_, NA_real_, lower_bound, upper_bound)
+  c(lower_bound, upper_bound)
 }

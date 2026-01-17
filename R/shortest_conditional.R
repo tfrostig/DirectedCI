@@ -92,8 +92,7 @@ Shortest.AR <- shortest_conditional_ar
 #' @param ct Numeric > 0. Critical value. Default qnorm(0.975).
 #' @param alpha Numeric in (0, 1). Significance level. Default 0.05.
 #'
-#' @return Numeric vector of length 4: c(ll, ul, lr, ur).
-#'   For single interval, two values will be NA.
+#' @return Numeric vector of length 2: c(lower, upper).
 #'
 #' @examples
 #' shortest_conditional_ci(y = 2.5, ct = qnorm(0.975), alpha = 0.05)
@@ -180,16 +179,14 @@ shortest_conditional_ci <- function(y, ct = qnorm(0.975), alpha = 0.05) {
 
   # Apply reflection for negative y
   if (is_neg) {
-    ci <- c(NA_real_, NA_real_, -upper, -lower)
+    c(-upper, -lower)
   } else {
-    ci <- c(NA_real_, NA_real_, lower, upper)
+    c(lower, upper)
   }
-
-  ci
 }
 
 # Alias for backwards compatibility
 Shortest.CI <- function(x, ct, alpha) {
   ci <- shortest_conditional_ci(x, ct, alpha)
-  list(lower = ci[3], upper = ci[4])
+  list(lower = ci[1], upper = ci[2])
 }

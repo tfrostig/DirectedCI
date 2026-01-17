@@ -64,7 +64,7 @@ test_that("dp vs dn conditional CI symmetry holds", {
 
   # dn_conditional_ci(y) should equal reflected dp_conditional_ci(-y)
   ci_pos_reflected <- dp_conditional_ci(-y, ct, r, alpha)
-  ci_refl <- c(NA_real_, NA_real_, -ci_pos_reflected[4], -ci_pos_reflected[3])
+  ci_refl <- c(-ci_pos_reflected[2], -ci_pos_reflected[1])
 
   # dn_conditional_ci must match reflected dp_conditional_ci
   expect_equal(ci_neg, ci_refl, tolerance = tol)
@@ -88,8 +88,7 @@ test_that("direction_preferring_conditional_ci standardization + rescaling is co
   # Manual standardization
   z <- y / sd
   ci_z <- dp_conditional_ci(z, ct, r, alpha)
-  ci_manual <- ci_z
-  ci_manual[3:4] <- sd * ci_z[3:4]
+  ci_manual <- sd * ci_z
 
   ci_wrapper <- direction_preferring_conditional_ci(
     y = y,
@@ -123,8 +122,7 @@ test_that("negative direction wrapper matches reflected positive CI", {
   # Manual reflection using dn_conditional_ci
   z <- y / sd
   ci_dn <- dn_conditional_ci(z, ct, r, alpha)
-  ci_manual <- ci_dn
-  ci_manual[3:4] <- sd * ci_dn[3:4]
+  ci_manual <- sd * ci_dn
 
   expect_equal(ci_neg[3:4], ci_manual[3:4], tolerance = tol)
 })
@@ -147,10 +145,10 @@ test_that("CI bounds are increasing and finite", {
     y, sd, r, ct, alpha, direction = "positive"
   )
 
-  # CI returns c(NA, NA, lower, upper)
-  expect_true(is.finite(ci[3]))
-  expect_true(is.finite(ci[4]))
-  expect_lte(ci[3], ci[4])
+  # CI returns c(lower, upper)
+  expect_true(is.finite(ci[1]))
+  expect_true(is.finite(ci[2]))
+  expect_lte(ci[1], ci[2])
 })
 
 
@@ -170,9 +168,9 @@ test_that("CI computation near regime thresholds works", {
 
   for (y in ys) {
     ci <- direction_preferring_conditional_ci(y, sd, r, ct, alpha, direction="positive")
-    expect_true(is.finite(ci[3]))
-    expect_true(is.finite(ci[4]))
-    expect_lte(ci[3], ci[4])
+    expect_true(is.finite(ci[1]))
+    expect_true(is.finite(ci[2]))
+    expect_lte(ci[1], ci[2])
   }
 })
 
@@ -191,9 +189,9 @@ test_that("Known stable CI values do not change unexpectedly", {
 
   ci <- direction_preferring_conditional_ci(y, sd, r, ct, alpha, "positive")
 
-  # CI returns c(NA, NA, lower, upper)
-  expect_true(ci[3] < ci[4])
-  expect_true(ci[3] < y)  # Lower bound should be below estimate
+  # CI returns c(lower, upper)
+  expect_true(ci[1] < ci[2])
+  expect_true(ci[1] < y)  # Lower bound should be below estimate
 })
 
 
@@ -211,8 +209,8 @@ test_that("Extremely large y values produce finite output", {
 
   ci <- direction_preferring_conditional_ci(y, sd, r, ct, alpha, "positive")
 
-  # CI returns c(NA, NA, lower, upper)
-  expect_true(is.finite(ci[3]))
-  expect_true(is.finite(ci[4]))
-  expect_lte(ci[3], ci[4])
+  # CI returns c(lower, upper)
+  expect_true(is.finite(ci[1]))
+  expect_true(is.finite(ci[2]))
+  expect_lte(ci[1], ci[2])
 })
