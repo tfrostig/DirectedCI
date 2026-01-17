@@ -80,7 +80,8 @@ shortest_conditional_ar <- function(theta, ct = qnorm(0.975), alpha = 0.05) {
   list(ar = ar, length = len)
 }
 
-# Alias for backwards compatibility
+#' @rdname shortest_conditional_ar
+#' @export
 Shortest.AR <- shortest_conditional_ar
 
 #' Shortest Conditional Confidence Interval
@@ -185,7 +186,8 @@ shortest_conditional_ci <- function(y, ct = qnorm(0.975), alpha = 0.05) {
   }
 }
 
-# Alias for backwards compatibility
+#' @rdname shortest_conditional_ci
+#' @export
 Shortest.CI <- function(x, ct, alpha) {
   ci <- shortest_conditional_ci(x, ct, alpha)
   list(lower = ci[1], upper = ci[2])
