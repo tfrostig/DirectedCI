@@ -1,0 +1,292 @@
+---
+title: "DirectedCI: Confidence Interval Bounds Simulation"
+subtitle: "Acceptance Regions and Confidence Intervals"
+author: "DirectedCI Package"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: cosmo
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 10,
+  fig.height = 8
+)
+```
+
+# 1. Setup
+
+```{r load-packages}
+library(DirectedCI)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+```
+
+```{r parameters}
+alpha <- 0.05
+ct <- qnorm(1 - alpha / 2)  # 1.96
+r <- 1.3
+
+cat("Parameters: alpha =", alpha, ", ct =", round(ct, 3), ", r =", r, "\n")
+```
+
+# 2. Compute Bounds
+
+```{r compute-bounds}
+# Helper to extract AR bounds
+get_ar_bounds <- function(ar_result) {
+  if (is.list(ar_result) && "ar" %in% names(ar_result)) {
+    ar <- ar_result$ar
+  } else {
+    ar <- ar_result
+  }
+  ar <- ar[!is.na(ar)]
+  if (length(ar) >= 2) {
+    return(c(min(ar), max(ar)))
+  }
+  return(c(NA, NA))
+}
+
+# Ranges
+theta_seq <- seq(-3, 3, by = 0.02)
+y_seq <- seq(-5, 5, by = 0.02)
+
+# Storage for all data
+all_data <- list()
+
+# ========== MARGINAL ACCEPTANCE REGION ==========
+mar_ar <- expand.grid(theta = theta_seq, method = c("standard", "dp+", "MP"))
+mar_ar$lower <- NA_real_
+mar_ar$upper <- NA_real_
+
+for (i in 1:nrow(mar_ar)) {
+  th <- mar_ar$theta[i]
+  m <- mar_ar$method[i]
+
+  if (m == "standard") {
+    mar_ar$lower[i] <- th - qnorm(1 - alpha/2)
+    mar_ar$upper[i] <- th + qnorm(1 - alpha/2)
+  } else if (m == "dp+") {
+    ar <- get_ar_bounds(dp_marginal_ar(th, r_l = r, alpha = alpha))
+    mar_ar$lower[i] <- ar[1]
+    mar_ar$upper[i] <- ar[2]
+  } else if (m == "MP") {
+    ar <- get_ar_bounds(mp_marginal_ar(th, r = r, alpha = alpha))
+    mar_ar$lower[i] <- ar[1]
+    mar_ar$upper[i] <- ar[2]
+  }
+}
+mar_ar$panel <- "Acceptance Region"
+mar_ar$setting <- "Marginal"
+mar_ar$x <- mar_ar$theta
+mar_ar$region <- "all"
+
+# ========== MARGINAL CONFIDENCE INTERVAL ==========
+mar_ci <- expand.grid(y = y_seq, method = c("standard", "dp+", "MP"))
+mar_ci$lower <- NA_real_
+mar_ci$upper <- NA_real_
+
+for (i in 1:nrow(mar_ci)) {
+  yval <- mar_ci$y[i]
+  m <- mar_ci$method[i]
+
+  if (m == "standard") {
+    ci <- shortest_marginal_ci(yval, alpha = alpha)
+  } else if (m == "dp+") {
+    ci <- dp_marginal_ci(yval, r_l = r, alpha = alpha)
+  } else if (m == "MP") {
+    ci <- mp_marginal_ci(yval, r = r, alpha = alpha)
+  }
+  mar_ci$lower[i] <- ci[1]
+  mar_ci$upper[i] <- ci[2]
+}
+mar_ci$panel <- "Confidence Interval"
+mar_ci$setting <- "Marginal"
+mar_ci$x <- mar_ci$y
+mar_ci$region <- "all"
+
+# ========== CONDITIONAL ACCEPTANCE REGION ==========
+cond_ar <- expand.grid(theta = theta_seq, method = c("standard", "dp+", "MP"))
+cond_ar$lower <- NA_real_
+cond_ar$upper <- NA_real_
+
+for (i in 1:nrow(cond_ar)) {
+  th <- cond_ar$theta[i]
+  m <- cond_ar$method[i]
+
+  ar <- tryCatch({
+    if (m == "standard") {
+      get_ar_bounds(shortest_conditional_ar(th, ct = ct, alpha = alpha))
+    } else if (m == "dp+") {
+      get_ar_bounds(dp_conditional_ar(th, ct = ct, r = r, alpha = alpha))
+    } else if (m == "MP") {
+      get_ar_bounds(mp_conditional_ar(th, ct = ct, r = r, alpha = alpha))
+    }
+  }, error = function(e) c(NA, NA))
+
+  cond_ar$lower[i] <- ar[1]
+  cond_ar$upper[i] <- ar[2]
+}
+cond_ar$panel <- "Acceptance Region"
+cond_ar$setting <- "Conditional"
+cond_ar$x <- cond_ar$theta
+cond_ar$region <- "all"
+
+# ========== CONDITIONAL CONFIDENCE INTERVAL ==========
+# Only for |y| > ct, with separate regions to avoid line connection across gap
+y_cond_neg <- y_seq[y_seq < -ct]
+y_cond_pos <- y_seq[y_seq > ct]
+
+cond_ci <- bind_rows(
+  expand.grid(y = y_cond_neg, method = c("standard", "dp+", "MP"), region = "negative"),
+  expand.grid(y = y_cond_pos, method = c("standard", "dp+", "MP"), region = "positive")
+)
+cond_ci$lower <- NA_real_
+cond_ci$upper <- NA_real_
+
+for (i in 1:nrow(cond_ci)) {
+  yval <- cond_ci$y[i]
+  m <- cond_ci$method[i]
+
+  ci <- tryCatch({
+    if (m == "standard") {
+      shortest_conditional_ci(yval, ct = ct, alpha = alpha)
+    } else if (m == "dp+") {
+      dp_conditional_ci(yval, ct = ct, r = r, alpha = alpha)
+    } else if (m == "MP") {
+      mp_conditional_ci(yval, ct = ct, r = r, alpha = alpha)
+    }
+  }, error = function(e) c(NA, NA))
+
+  cond_ci$lower[i] <- ci[1]
+  cond_ci$upper[i] <- ci[2]
+}
+cond_ci$panel <- "Confidence Interval"
+cond_ci$setting <- "Conditional"
+cond_ci$x <- cond_ci$y
+
+# Combine all data
+plot_data <- bind_rows(
+  mar_ar %>% select(x, method, lower, upper, panel, setting, region),
+  mar_ci %>% select(x, method, lower, upper, panel, setting, region),
+  cond_ar %>% select(x, method, lower, upper, panel, setting, region),
+  cond_ci %>% select(x, method, lower, upper, panel, setting, region)
+)
+
+# Factor levels for proper ordering
+plot_data$panel <- factor(plot_data$panel, levels = c("Acceptance Region", "Confidence Interval"))
+plot_data$setting <- factor(plot_data$setting, levels = c("Marginal", "Conditional"))
+plot_data$method <- factor(plot_data$method, levels = c("dp+", "MP", "standard"))
+```
+
+# 3. Create 2x2 Plot
+
+```{r main-plot, fig.width=10, fig.height=8}
+# Colors and linetypes
+method_colors <- c("dp+" = "#377EB8", "MP" = "#4DAF4A", "standard" = "#E41A1C")
+method_linetypes <- c("dp+" = "solid", "MP" = "longdash", "standard" = "dotted")
+
+# Pivot to long format for upper/lower bounds (keep region for grouping)
+plot_long <- plot_data %>%
+  pivot_longer(cols = c(lower, upper), names_to = "bound", values_to = "value") %>%
+  filter(!is.na(value))
+
+# Create the 2x2 plot
+ggplot(plot_long, aes(x = x, y = value, color = method, linetype = method, group = interaction(method, bound, region))) +
+  geom_line(linewidth = 0.8) +
+  facet_grid(setting ~ panel, scales = "free", switch = "y") +
+  scale_color_manual(values = method_colors) +
+  scale_linetype_manual(values = method_linetypes) +
+  labs(
+    x = NULL,
+    y = NULL,
+    color = NULL,
+    linetype = NULL
+  ) +
+  theme_bw(base_size = 12) +
+  theme(
+    legend.position = "top",
+    legend.key.width = unit(2, "cm"),
+    strip.background = element_blank(),
+    strip.text = element_text(face = "bold", size = 11),
+    strip.placement = "outside",
+    panel.spacing = unit(0.5, "lines")
+  )
+```
+
+# 4. Individual Panels (for detail)
+
+```{r panel-ar-marginal, fig.width=6, fig.height=5}
+plot_long %>%
+  filter(panel == "Acceptance Region", setting == "Marginal") %>%
+  ggplot(aes(x = x, y = value, color = method, linetype = method, group = interaction(method, bound, region))) +
+  geom_line(linewidth = 0.9) +
+  scale_color_manual(values = method_colors) +
+  scale_linetype_manual(values = method_linetypes) +
+  labs(title = "Acceptance Region - Marginal", x = expression(theta), y = "Y") +
+  theme_bw() +
+  theme(legend.position = "top", legend.title = element_blank())
+```
+
+```{r panel-ci-marginal, fig.width=6, fig.height=5}
+plot_long %>%
+  filter(panel == "Confidence Interval", setting == "Marginal") %>%
+  ggplot(aes(x = x, y = value, color = method, linetype = method, group = interaction(method, bound, region))) +
+  geom_line(linewidth = 0.9) +
+  scale_color_manual(values = method_colors) +
+  scale_linetype_manual(values = method_linetypes) +
+  labs(title = "Confidence Interval - Marginal", x = "Y", y = expression(theta)) +
+  theme_bw() +
+  theme(legend.position = "top", legend.title = element_blank())
+```
+
+```{r panel-ar-conditional, fig.width=6, fig.height=5}
+plot_long %>%
+  filter(panel == "Acceptance Region", setting == "Conditional") %>%
+  ggplot(aes(x = x, y = value, color = method, linetype = method, group = interaction(method, bound, region))) +
+  geom_line(linewidth = 0.9) +
+  scale_color_manual(values = method_colors) +
+  scale_linetype_manual(values = method_linetypes) +
+  labs(title = "Acceptance Region - Conditional", x = expression(theta), y = "Y") +
+  theme_bw() +
+  theme(legend.position = "top", legend.title = element_blank())
+```
+
+```{r panel-ci-conditional, fig.width=6, fig.height=5}
+plot_long %>%
+  filter(panel == "Confidence Interval", setting == "Conditional") %>%
+  ggplot(aes(x = x, y = value, color = method, linetype = method, group = interaction(method, bound, region))) +
+  geom_line(linewidth = 0.9) +
+  scale_color_manual(values = method_colors) +
+  scale_linetype_manual(values = method_linetypes) +
+  labs(title = "Confidence Interval - Conditional", x = "Y", y = expression(theta)) +
+  theme_bw() +
+  theme(legend.position = "top", legend.title = element_blank())
+```
+
+# 5. Summary
+
+```{r summary}
+cat("Methods:\n")
+cat("  dp+      : blue, solid\n")
+cat("  MP       : green, longdash\n")
+cat("  standard : red, dotted\n\n")
+
+cat("Layout: 2x2 grid\n")
+cat("  Columns: Acceptance Region | Confidence Interval\n")
+cat("  Rows: Marginal | Conditional\n")
+```
+
+# 6. Session Info
+
+```{r session-info}
+sessionInfo()
+```
