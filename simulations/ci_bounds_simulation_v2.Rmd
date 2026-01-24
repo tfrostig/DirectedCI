@@ -24,7 +24,8 @@ knitr::opts_chunk$set(
 # 1. Setup
 
 ```{r load-packages}
-library(DirectedCI)
+# Use devtools::load_all() to load development version with fixes
+devtools::load_all("..", quiet = TRUE)
 library(ggplot2)
 library(dplyr)
 library(tidyr)
@@ -272,7 +273,236 @@ plot_long %>%
   theme(legend.position = "top", legend.title = element_blank())
 ```
 
-# 5. Summary
+# 5. Package vs Standalone MP Implementation Comparison
+
+This section compares the DirectedCI package MP implementation against the standalone
+(gold standard) implementation to visually verify they are identical.
+
+```{r load-standalone}
+# Source standalone implementations
+SOURCED_AS_LIBRARY <- TRUE
+source("../standalone_modified_pratt_ci.R")
+source("../standalone_non_conditional_modified_pratt_ci.R")
+```
+
+## 5.1 Marginal MP CI: Package vs Standalone
+
+```{r mp-marginal-comparison, fig.width=10, fig.height=6}
+# Compare marginal MP CI
+y_seq_marginal <- seq(-4, 4, by = 0.05)
+
+marginal_comparison <- data.frame(
+  y = rep(y_seq_marginal, 2),
+  source = rep(c("Package", "Standalone"), each = length(y_seq_marginal)),
+  lower = NA_real_,
+  upper = NA_real_
+)
+
+for (i in seq_along(y_seq_marginal)) {
+  yval <- y_seq_marginal[i]
+
+  # Package
+  pkg_ci <- mp_marginal_ci(yval, r = r, alpha = alpha)
+  marginal_comparison$lower[i] <- pkg_ci[1]
+  marginal_comparison$upper[i] <- pkg_ci[2]
+
+  # Standalone
+  std_ci <- ci_sym_nc(yval, r = r, alpha = alpha)
+  marginal_comparison$lower[i + length(y_seq_marginal)] <- std_ci[1]
+  marginal_comparison$upper[i + length(y_seq_marginal)] <- std_ci[2]
+}
+
+marginal_long <- marginal_comparison %>%
+  pivot_longer(cols = c(lower, upper), names_to = "bound", values_to = "value")
+
+ggplot(marginal_long, aes(x = y, y = value, color = source, linetype = source,
+                          group = interaction(source, bound))) +
+  geom_line(linewidth = 1) +
+  scale_color_manual(values = c("Package" = "#E41A1C", "Standalone" = "#377EB8")) +
+  scale_linetype_manual(values = c("Package" = "solid", "Standalone" = "dashed")) +
+  labs(
+    title = "Marginal MP CI: Package vs Standalone (Gold Standard)",
+    subtitle = paste0("r = ", r, ", alpha = ", alpha),
+    x = "Y (observed value)",
+    y = "CI Bound",
+    color = "Implementation",
+    linetype = "Implementation"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(legend.position = "top")
+```
+
+```{r mp-marginal-diff, fig.width=10, fig.height=4}
+# Show numerical differences
+marginal_diff <- data.frame(
+  y = y_seq_marginal,
+  lower_diff = NA_real_,
+  upper_diff = NA_real_
+)
+
+for (i in seq_along(y_seq_marginal)) {
+  yval <- y_seq_marginal[i]
+  pkg_ci <- mp_marginal_ci(yval, r = r, alpha = alpha)
+  std_ci <- ci_sym_nc(yval, r = r, alpha = alpha)
+  marginal_diff$lower_diff[i] <- pkg_ci[1] - std_ci[1]
+  marginal_diff$upper_diff[i] <- pkg_ci[2] - std_ci[2]
+}
+
+marginal_diff_long <- marginal_diff %>%
+  pivot_longer(cols = c(lower_diff, upper_diff), names_to = "bound", values_to = "diff")
+
+ggplot(marginal_diff_long, aes(x = y, y = diff, color = bound)) +
+  geom_line(linewidth = 0.8) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+  scale_color_manual(values = c("lower_diff" = "#E41A1C", "upper_diff" = "#377EB8"),
+                     labels = c("Lower Bound", "Upper Bound")) +
+  labs(
+    title = "Marginal MP CI: Difference (Package - Standalone)",
+    subtitle = "Values should be ~0 if implementations match",
+    x = "Y (observed value)",
+    y = "Difference",
+    color = "Bound"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(legend.position = "top")
+
+cat("Max absolute difference (marginal):\n")
+cat("  Lower bound:", max(abs(marginal_diff$lower_diff), na.rm = TRUE), "\n")
+cat("  Upper bound:", max(abs(marginal_diff$upper_diff), na.rm = TRUE), "\n")
+```
+
+## 5.2 Conditional MP CI: Package vs Standalone
+
+```{r mp-conditional-comparison, fig.width=10, fig.height=6}
+# Compare conditional MP CI (only for |y| > ct)
+y_seq_cond_neg <- seq(-5, -ct - 0.01, by = 0.05)
+y_seq_cond_pos <- seq(ct + 0.01, 5, by = 0.05)
+y_seq_conditional <- c(y_seq_cond_neg, y_seq_cond_pos)
+
+conditional_comparison <- data.frame(
+  y = rep(y_seq_conditional, 2),
+  source = rep(c("Package", "Standalone"), each = length(y_seq_conditional)),
+  region = rep(c(rep("negative", length(y_seq_cond_neg)),
+                 rep("positive", length(y_seq_cond_pos))), 2),
+  lower = NA_real_,
+  upper = NA_real_
+)
+
+for (i in seq_along(y_seq_conditional)) {
+  yval <- y_seq_conditional[i]
+
+  # Package
+  pkg_ci <- tryCatch(
+    mp_conditional_ci(yval, ct = ct, r = r, alpha = alpha),
+    error = function(e) c(NA, NA)
+  )
+  conditional_comparison$lower[i] <- pkg_ci[1]
+  conditional_comparison$upper[i] <- pkg_ci[2]
+
+  # Standalone
+  std_ci <- tryCatch(
+    MP.CI(yval, r = r, ct = ct, alpha = alpha),
+    error = function(e) c(NA, NA),
+    warning = function(w) suppressWarnings(MP.CI(yval, r = r, ct = ct, alpha = alpha))
+  )
+  conditional_comparison$lower[i + length(y_seq_conditional)] <- std_ci[1]
+  conditional_comparison$upper[i + length(y_seq_conditional)] <- std_ci[2]
+}
+
+conditional_long <- conditional_comparison %>%
+  pivot_longer(cols = c(lower, upper), names_to = "bound", values_to = "value") %>%
+  filter(!is.na(value))
+
+ggplot(conditional_long, aes(x = y, y = value, color = source, linetype = source,
+                              group = interaction(source, bound, region))) +
+  geom_line(linewidth = 1) +
+  scale_color_manual(values = c("Package" = "#E41A1C", "Standalone" = "#377EB8")) +
+  scale_linetype_manual(values = c("Package" = "solid", "Standalone" = "dashed")) +
+  labs(
+    title = "Conditional MP CI: Package vs Standalone (Gold Standard)",
+    subtitle = paste0("ct = ", round(ct, 3), ", r = ", r, ", alpha = ", alpha),
+    x = "Y (observed value)",
+    y = "CI Bound",
+    color = "Implementation",
+    linetype = "Implementation"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(legend.position = "top")
+```
+
+```{r mp-conditional-diff, fig.width=10, fig.height=4}
+# Show numerical differences for conditional
+conditional_diff <- data.frame(
+  y = y_seq_conditional,
+  lower_diff = NA_real_,
+  upper_diff = NA_real_
+)
+
+for (i in seq_along(y_seq_conditional)) {
+  yval <- y_seq_conditional[i]
+
+  pkg_ci <- tryCatch(
+    mp_conditional_ci(yval, ct = ct, r = r, alpha = alpha),
+    error = function(e) c(NA, NA)
+  )
+  std_ci <- tryCatch(
+    suppressWarnings(MP.CI(yval, r = r, ct = ct, alpha = alpha)),
+    error = function(e) c(NA, NA)
+  )
+
+  if (!any(is.na(pkg_ci)) && !any(is.na(std_ci))) {
+    conditional_diff$lower_diff[i] <- pkg_ci[1] - std_ci[1]
+    conditional_diff$upper_diff[i] <- pkg_ci[2] - std_ci[2]
+  }
+}
+
+conditional_diff_long <- conditional_diff %>%
+  pivot_longer(cols = c(lower_diff, upper_diff), names_to = "bound", values_to = "diff") %>%
+  filter(!is.na(diff))
+
+ggplot(conditional_diff_long, aes(x = y, y = diff, color = bound)) +
+  geom_line(linewidth = 0.8) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+  scale_color_manual(values = c("lower_diff" = "#E41A1C", "upper_diff" = "#377EB8"),
+                     labels = c("Lower Bound", "Upper Bound")) +
+  labs(
+    title = "Conditional MP CI: Difference (Package - Standalone)",
+    subtitle = "Values should be ~0 if implementations match",
+    x = "Y (observed value)",
+    y = "Difference",
+    color = "Bound"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(legend.position = "top")
+
+cat("Max absolute difference (conditional):\n")
+cat("  Lower bound:", max(abs(conditional_diff$lower_diff), na.rm = TRUE), "\n")
+cat("  Upper bound:", max(abs(conditional_diff$upper_diff), na.rm = TRUE), "\n")
+```
+
+## 5.3 Summary of Comparison
+
+```{r comparison-summary}
+cat("=== Package vs Standalone Comparison Summary ===\n\n")
+
+# Marginal
+cat("MARGINAL MP CI:\n")
+cat("  Max |lower_diff|:", sprintf("%.2e", max(abs(marginal_diff$lower_diff), na.rm = TRUE)), "\n")
+cat("  Max |upper_diff|:", sprintf("%.2e", max(abs(marginal_diff$upper_diff), na.rm = TRUE)), "\n")
+marginal_match <- max(abs(marginal_diff$lower_diff), na.rm = TRUE) < 1e-6 &&
+                  max(abs(marginal_diff$upper_diff), na.rm = TRUE) < 1e-6
+cat("  Match:", ifelse(marginal_match, "YES", "NO"), "\n\n")
+
+# Conditional
+cat("CONDITIONAL MP CI:\n")
+cat("  Max |lower_diff|:", sprintf("%.2e", max(abs(conditional_diff$lower_diff), na.rm = TRUE)), "\n")
+cat("  Max |upper_diff|:", sprintf("%.2e", max(abs(conditional_diff$upper_diff), na.rm = TRUE)), "\n")
+conditional_match <- max(abs(conditional_diff$lower_diff), na.rm = TRUE) < 1e-6 &&
+                     max(abs(conditional_diff$upper_diff), na.rm = TRUE) < 1e-6
+cat("  Match:", ifelse(conditional_match, "YES", "NO"), "\n")
+```
+
+# 6. Summary
 
 ```{r summary}
 cat("Methods:\n")
@@ -285,7 +515,7 @@ cat("  Columns: Acceptance Region | Confidence Interval\n")
 cat("  Rows: Marginal | Conditional\n")
 ```
 
-# 6. Session Info
+# 7. Session Info
 
 ```{r session-info}
 sessionInfo()
