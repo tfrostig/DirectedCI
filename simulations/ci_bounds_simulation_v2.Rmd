@@ -64,7 +64,7 @@ y_seq <- seq(-5, 5, by = 0.02)
 all_data <- list()
 
 # ========== MARGINAL ACCEPTANCE REGION ==========
-mar_ar <- expand.grid(theta = theta_seq, method = c("standard", "dp+", "MP"))
+mar_ar <- expand.grid(theta = theta_seq, method = c("Unadjusted", "DP+", "MP"))
 mar_ar$lower <- NA_real_
 mar_ar$upper <- NA_real_
 
@@ -72,10 +72,10 @@ for (i in 1:nrow(mar_ar)) {
   th <- mar_ar$theta[i]
   m <- mar_ar$method[i]
 
-  if (m == "standard") {
+  if (m == "Unadjusted") {
     mar_ar$lower[i] <- th - qnorm(1 - alpha/2)
     mar_ar$upper[i] <- th + qnorm(1 - alpha/2)
-  } else if (m == "dp+") {
+  } else if (m == "DP+") {
     ar <- get_ar_bounds(dp_marginal_ar(th, r_l = r, alpha = alpha))
     mar_ar$lower[i] <- ar[1]
     mar_ar$upper[i] <- ar[2]
@@ -91,7 +91,7 @@ mar_ar$x <- mar_ar$theta
 mar_ar$region <- "all"
 
 # ========== MARGINAL CONFIDENCE INTERVAL ==========
-mar_ci <- expand.grid(y = y_seq, method = c("standard", "dp+", "MP"))
+mar_ci <- expand.grid(y = y_seq, method = c("Unadjusted", "DP+", "MP"))
 mar_ci$lower <- NA_real_
 mar_ci$upper <- NA_real_
 
@@ -99,9 +99,9 @@ for (i in 1:nrow(mar_ci)) {
   yval <- mar_ci$y[i]
   m <- mar_ci$method[i]
 
-  if (m == "standard") {
+  if (m == "Unadjusted") {
     ci <- shortest_marginal_ci(yval, alpha = alpha)
-  } else if (m == "dp+") {
+  } else if (m == "DP+") {
     ci <- dp_marginal_ci(yval, r_l = r, alpha = alpha)
   } else if (m == "MP") {
     ci <- mp_marginal_ci(yval, r = r, alpha = alpha)
@@ -115,7 +115,7 @@ mar_ci$x <- mar_ci$y
 mar_ci$region <- "all"
 
 # ========== CONDITIONAL ACCEPTANCE REGION ==========
-cond_ar <- expand.grid(theta = theta_seq, method = c("standard", "dp+", "MP"))
+cond_ar <- expand.grid(theta = theta_seq, method = c("Unadjusted", "DP+", "MP"))
 cond_ar$lower <- NA_real_
 cond_ar$upper <- NA_real_
 
@@ -124,9 +124,9 @@ for (i in 1:nrow(cond_ar)) {
   m <- cond_ar$method[i]
 
   ar <- tryCatch({
-    if (m == "standard") {
+    if (m == "Unadjusted") {
       get_ar_bounds(shortest_conditional_ar(th, ct = ct, alpha = alpha))
-    } else if (m == "dp+") {
+    } else if (m == "DP+") {
       get_ar_bounds(dp_conditional_ar(th, ct = ct, r = r, alpha = alpha))
     } else if (m == "MP") {
       get_ar_bounds(mp_conditional_ar(th, ct = ct, r = r, alpha = alpha))
@@ -147,8 +147,8 @@ y_cond_neg <- y_seq[y_seq < -ct]
 y_cond_pos <- y_seq[y_seq > ct]
 
 cond_ci <- bind_rows(
-  expand.grid(y = y_cond_neg, method = c("standard", "dp+", "MP"), region = "negative"),
-  expand.grid(y = y_cond_pos, method = c("standard", "dp+", "MP"), region = "positive")
+  expand.grid(y = y_cond_neg, method = c("Unadjusted", "DP+", "MP"), region = "negative"),
+  expand.grid(y = y_cond_pos, method = c("Unadjusted", "DP+", "MP"), region = "positive")
 )
 cond_ci$lower <- NA_real_
 cond_ci$upper <- NA_real_
@@ -158,9 +158,9 @@ for (i in 1:nrow(cond_ci)) {
   m <- cond_ci$method[i]
 
   ci <- tryCatch({
-    if (m == "standard") {
+    if (m == "Unadjusted") {
       shortest_conditional_ci(yval, ct = ct, alpha = alpha)
-    } else if (m == "dp+") {
+    } else if (m == "DP+") {
       dp_conditional_ci(yval, ct = ct, r = r, alpha = alpha)
     } else if (m == "MP") {
       mp_conditional_ci(yval, ct = ct, r = r, alpha = alpha)
@@ -185,15 +185,15 @@ plot_data <- bind_rows(
 # Factor levels for proper ordering
 plot_data$panel <- factor(plot_data$panel, levels = c("Acceptance Region", "Confidence Interval"))
 plot_data$setting <- factor(plot_data$setting, levels = c("Marginal", "Conditional"))
-plot_data$method <- factor(plot_data$method, levels = c("dp+", "MP", "standard"))
+plot_data$method <- factor(plot_data$method, levels = c("Unadjusted", "DP+", "MP"))
 ```
 
 # 3. Create 2x2 Plot
 
 ```{r main-plot, fig.width=10, fig.height=8}
 # Colors and linetypes
-method_colors <- c("dp+" = "#377EB8", "MP" = "#4DAF4A", "standard" = "#E41A1C")
-method_linetypes <- c("dp+" = "solid", "MP" = "longdash", "standard" = "dotted")
+method_colors <- c("Unadjusted" = "#E41A1C", "DP+" = "#377EB8", "MP" = "#4DAF4A")
+method_linetypes <- c("Unadjusted" = "dotted", "DP+" = "solid", "MP" = "longdash")
 
 # Pivot to long format for upper/lower bounds (keep region for grouping)
 plot_long <- plot_data %>%
@@ -506,9 +506,9 @@ cat("  Match:", ifelse(conditional_match, "YES", "NO"), "\n")
 
 ```{r summary}
 cat("Methods:\n")
-cat("  dp+      : blue, solid\n")
-cat("  MP       : green, longdash\n")
-cat("  standard : red, dotted\n\n")
+cat("  Unadjusted : red, dotted\n")
+cat("  DP+        : blue, solid\n")
+cat("  MP         : green, longdash\n\n")
 
 cat("Layout: 2x2 grid\n")
 cat("  Columns: Acceptance Region | Confidence Interval\n")
