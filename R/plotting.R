@@ -321,12 +321,12 @@ plot_ci_comparison <- function(estimates,
 
   # Create nice method labels
   method_labels <- c(
-    "standard" = "Standard",
+    "standard" = "Unadjusted",
     "bonferroni" = "Bonferroni",
-    "by_standard" = "BY Standard",
+    "by_standard" = "BY Unadjusted",
     "by_dp" = "BY DP+",
     "by_mp" = "BY MP",
-    "cond_standard" = "Cond. Standard",
+    "cond_standard" = "Cond. Unadjusted",
     "cond_dp" = "Cond. DP+",
     "cond_mp" = "Cond. MP"
   )
