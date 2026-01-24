@@ -77,11 +77,14 @@ mp_conditional_ar <- function(theta, ct = qnorm(0.975), r = 1.3, alpha = 0.05) {
 #' Modified Pratt Conditional CI
 #'
 #' Computes the Modified Pratt CI for a normal mean conditional on significance.
+#' Based on "Selection Adjusted Confidence Intervals with More Power to
+#' Determine the Sign" by Weinstein, Fithian, and Benjamini (JASA 2012).
 #'
 #' @param y Numeric. Observed test statistic (on Z-scale). Must satisfy |y| > ct.
 #' @param ct Numeric > 0. Critical value. Default qnorm(0.975).
 #' @param r Numeric >= 1. Inflation factor. Default 1.3.
 #' @param alpha Numeric in (0, 1). Significance level. Default 0.05.
+#' @param epsilon Numeric. Small value for open intervals at 0. Default 0.
 #'
 #' @return Numeric vector of length 2: c(lower, upper).
 #'
@@ -90,57 +93,94 @@ mp_conditional_ar <- function(theta, ct = qnorm(0.975), r = 1.3, alpha = 0.05) {
 #' mp_conditional_ci(y = -2.5, ct = qnorm(0.975), r = 1.3, alpha = 0.05)
 #'
 #' @export
-mp_conditional_ci <- function(y, ct = qnorm(0.975), r = 1.3, alpha = 0.05) {
-  # Use symmetry: for positive y, compute for -y and reflect
-  if (sign(y) == 1) {
-    ci <- mp_conditional_ci(-y, ct, r, alpha)
-    return(c(-ci[2], -ci[1]))
+mp_conditional_ci <- function(y, ct = qnorm(0.975), r = 1.3, alpha = 0.05, epsilon = 0) {
+  # Validate input
+  if (abs(y) <= ct) {
+    warning("Observed value |y| must exceed threshold ct. Returning NA.")
+    return(c(NA_real_, NA_real_))
   }
 
-  # Regime change points
-  theta_1_minus_r <- -find_tilde_1(ct, r, alpha)
+  # Selection probability function
+  Q <- function(theta) 1 - pnorm(ct + theta) + 1 - pnorm(ct - theta)
 
-  # AR wrapper
-  ar_func <- function(theta) mp_conditional_ar(theta, ct, r, alpha)$ar
+  # Compute critical quantities using the paper's formulas
+  # theta1: regime boundary for shortest AR
+  f1 <- function(theta) (pnorm(ct + theta) - pnorm(ct - theta)) - (1 - alpha) * Q(theta)
+  theta1 <- uniroot(f1, c(0, ct + qnorm(1 - alpha)))$root
 
-  # Important thresholds
-  neg_threshold_1 <- min(ar_func(theta_1_minus_r), na.rm = TRUE)
-  neg_threshold_2 <- min(ar_func(0), na.rm = TRUE)
-  neg_threshold_3 <- min(ar_func(EPS), na.rm = TRUE)
-
-  # Functions for root finding
-  lb_function <- function(theta) {
-    ar <- ar_func(theta)
-    max(ar, na.rm = TRUE) - y
+  # thetatilde1: where inflated AR first crosses ct
+  f2 <- function(theta) {
+    pnorm(ct + r * shortest_conditional_ar(theta, ct, alpha)$length - theta) -
+      pnorm(ct - theta) - (1 - alpha) * Q(theta)
   }
-  ub_function <- function(theta) {
-    ar <- ar_func(theta)
-    min(ar, na.rm = TRUE) - y
+  thetatilde1 <- uniroot(f2, c(0, theta1))$root
+
+  # zalphahalf: quantile for theta=0
+  zalphahalf <- qnorm(1 - 0.5 * alpha * Q(0))
+
+  # lzero: shortest AR length at theta=0
+  lzero <- shortest_conditional_ar(0, ct, alpha)$length
+
+  # xtilde1, xtilde2: transition points for x
+  f3 <- function(x) {
+    1 - pnorm(x) + 1 - pnorm(2 * ct + r * lzero - x) - 2 * alpha * (1 - pnorm(ct))
   }
+  xtilde1 <- uniroot(f3, c(ct, zalphahalf))$root
+  xtilde2 <- uniroot(f3, c(zalphahalf, ct + r * 2 * qnorm(1 - alpha / 2)))$root
 
-  # Determine regime and compute CI bounds
-  if (y < neg_threshold_1) {
-    lower_interval <- bounds_for_ci(y, ct, alpha, lower_ci_bound = TRUE)
-    lower_bound <- uniroot(lb_function, lower_interval)$root
+  # ltilde1: shortest AR length at thetatilde1
+  ltilde1 <- shortest_conditional_ar(thetatilde1, ct, alpha)$length
 
-    upper_interval <- bounds_for_ci(y, ct, alpha / 2, lower_ci_bound = FALSE)
-    upper_bound <- uniroot(ub_function, upper_interval)$root
-  } else if (y >= neg_threshold_1 && y < neg_threshold_2) {
-    lower_interval <- bounds_for_ci(y, ct, alpha, lower_ci_bound = TRUE)
-    lower_bound <- uniroot(lb_function, lower_interval)$root
-    upper_bound <- 0  # open (not containing 0)
-  } else if (y >= neg_threshold_2 && y < neg_threshold_3) {
-    lower_interval <- bounds_for_ci(y, ct, alpha, lower_ci_bound = TRUE)
-    lower_bound <- uniroot(lb_function, lower_interval)$root
-    upper_bound <- 0  # closed (containing 0)
+  # Handle negative y by symmetry
+  is_neg <- y < 0
+  x <- abs(y)
+
+  # Obtain lower bound of CI based on x region (5 regimes)
+  if (ct < x && x < xtilde1) {
+    # Regime 1: just above threshold
+    f_lower <- function(theta) {
+      1 - pnorm(x - theta) +
+        1 - pnorm(theta - x + 2 * ct + r * shortest_conditional_ar(theta, ct, alpha)$length) -
+        alpha * Q(theta)
+    }
+    lower <- uniroot(f_lower, c(-thetatilde1 - 1e-3, 0))$root
+  } else if (xtilde1 <= x && x < zalphahalf) {
+    # Regime 2: lower bound is 0 (closed)
+    lower <- 0
+  } else if (zalphahalf <= x && x < xtilde2) {
+    # Regime 3: lower bound is 0 (open)
+    lower <- 0 + epsilon
+  } else if (xtilde2 <= x && x < ct + r * ltilde1) {
+    # Regime 4: transition region
+    f_lower <- function(theta) {
+      1 - pnorm(x - theta) +
+        1 - pnorm(theta - x + 2 * ct + r * shortest_conditional_ar(theta, ct, alpha)$length) -
+        alpha * Q(theta)
+    }
+    lower <- uniroot(f_lower, c(0, thetatilde1))$root
   } else {
-    # y >= neg_threshold_3 && y <= -ct
-    lower_interval <- bounds_for_ci(y, ct, alpha, lower_ci_bound = TRUE)
-    lower_bound <- uniroot(lb_function, lower_interval)$root
-
-    upper_interval <- bounds_for_ci(y, ct, alpha, lower_ci_bound = FALSE)
-    upper_bound <- uniroot(ub_function, upper_interval)$root
+    # Regime 5: large x (x >= ct + r * ltilde1)
+    f_lower <- function(theta) {
+      pnorm(x - theta) -
+        pnorm(x - r * shortest_conditional_ar(theta, ct, alpha)$length - theta) -
+        (1 - alpha) * Q(theta)
+    }
+    m <- optimize(f_lower, c(thetatilde1, x), maximum = TRUE)$maximum
+    lower <- uniroot(f_lower, c(thetatilde1, m))$root
   }
 
-  c(lower_bound, upper_bound)
+  # Obtain upper bound of CI (always via root finding)
+  f_upper <- function(theta) {
+    pnorm(x + r * shortest_conditional_ar(theta, ct, alpha)$length - theta) -
+      pnorm(x - theta) - (1 - alpha) * Q(theta)
+  }
+  m <- optimize(f_upper, c(x, x + r * 2 * qnorm(1 - alpha / 2)), maximum = TRUE)$maximum
+  upper <- uniroot(f_upper, c(0, m))$root
+
+  # Apply symmetry for negative observations
+  if (is_neg) {
+    c(-upper, -lower)
+  } else {
+    c(lower, upper)
+  }
 }
