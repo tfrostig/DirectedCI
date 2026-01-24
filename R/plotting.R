@@ -354,15 +354,15 @@ plot_ci_comparison <- function(estimates,
   name_order <- names[order(estimates)]
   plot_df$name <- factor(plot_df$name, levels = name_order)
 
-  # Default color palette
+  # Default color palette (must match method_labels)
   if (is.null(color_palette)) {
     color_palette <- c(
-      "Standard" = "#808080",
+      "Unadjusted" = "#808080",
       "Bonferroni" = "#A9A9A9",
-      "BY Standard" = "#2166AC",
+      "BY Unadjusted" = "#2166AC",
       "BY DP+" = "#00CED1",
       "BY MP" = "#4DAF4A",
-      "Cond. Standard" = "#D62728",
+      "Cond. Unadjusted" = "#D62728",
       "Cond. DP+" = "#000000",
       "Cond. MP" = "#FF7F0E"
     )
