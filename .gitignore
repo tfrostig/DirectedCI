@@ -9,8 +9,9 @@ inst/doc
 *.pdf
 Rplots.pdf
 
-# Papers and real data examples (contain sensitive/proprietary data)
-papers/
+# Generated HTML/PDF output from papers (but keep .Rmd source files)
+papers/*.html
+papers/*.pdf
 
 # Screenshots and temp files
 *.png
