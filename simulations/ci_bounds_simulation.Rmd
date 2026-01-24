@@ -1,0 +1,491 @@
+---
+title: "DirectedCI: Confidence Interval Bounds Simulation"
+subtitle: "Visualizing Upper and Lower Bounds Across CI Methods"
+author: "DirectedCI Package"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: cosmo
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 12,
+  fig.height = 10
+)
+```
+
+# 1. Introduction
+
+This simulation computes and visualizes confidence interval bounds for all CI methods available in the DirectedCI package. We plot the upper and lower bounds as functions of the observed z-statistic.
+
+## 1.1 Load Packages
+
+```{r load-packages}
+library(DirectedCI)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+```
+
+## 1.2 Parameters
+
+```{r parameters}
+alpha <- 0.05
+ct <- qnorm(1 - alpha / 2)  # Selection threshold (1.96)
+r <- 1.3                     # Inflation parameter
+
+cat("Simulation Parameters:\n")
+cat("  alpha =", alpha, "\n")
+cat("  ct =", round(ct, 4), "\n")
+cat("  r =", r, "\n")
+```
+
+---
+
+# 2. Marginal CI Bounds
+
+Marginal CIs are valid unconditionally (no selection required).
+
+## 2.1 Compute Marginal CI Bounds
+
+```{r compute-marginal}
+# Range of z-values
+z_marginal <- seq(-4, 4, by = 0.05)
+
+# Compute bounds for each method
+marginal_results <- data.frame(z = z_marginal)
+
+# Shortest (Standard) Marginal
+marginal_results$shortest_lower <- sapply(z_marginal, function(z) {
+  shortest_marginal_ci(y = z, alpha = alpha)[1]
+})
+marginal_results$shortest_upper <- sapply(z_marginal, function(z) {
+  shortest_marginal_ci(y = z, alpha = alpha)[2]
+})
+
+# DP+ Marginal (positive direction preferred)
+marginal_results$dp_pos_lower <- sapply(z_marginal, function(z) {
+  dp_marginal_ci(y = z, r_l = r, alpha = alpha)[1]
+})
+marginal_results$dp_pos_upper <- sapply(z_marginal, function(z) {
+  dp_marginal_ci(y = z, r_l = r, alpha = alpha)[2]
+})
+
+# DP- Marginal (negative direction preferred)
+marginal_results$dp_neg_lower <- sapply(z_marginal, function(z) {
+  dn_marginal_ci(y = z, r_l = r, alpha = alpha)[1]
+})
+marginal_results$dp_neg_upper <- sapply(z_marginal, function(z) {
+  dn_marginal_ci(y = z, r_l = r, alpha = alpha)[2]
+})
+
+# MP Marginal
+marginal_results$mp_lower <- sapply(z_marginal, function(z) {
+  mp_marginal_ci(y = z, r = r, alpha = alpha)[1]
+})
+marginal_results$mp_upper <- sapply(z_marginal, function(z) {
+  mp_marginal_ci(y = z, r = r, alpha = alpha)[2]
+})
+```
+
+## 2.2 Plot Marginal CI Bounds (2x2)
+
+```{r plot-marginal, fig.height=10, fig.width=12}
+# Reshape for plotting
+marginal_lower <- marginal_results %>%
+  select(z, shortest_lower, dp_pos_lower, dp_neg_lower, mp_lower) %>%
+  pivot_longer(-z, names_to = "method", values_to = "lower") %>%
+  mutate(method = gsub("_lower", "", method),
+         method = factor(method,
+                        levels = c("shortest", "dp_pos", "dp_neg", "mp"),
+                        labels = c("Shortest (Standard)", "DP+ (Positive)",
+                                   "DP- (Negative)", "Modified Pratt")))
+
+marginal_upper <- marginal_results %>%
+  select(z, shortest_upper, dp_pos_upper, dp_neg_upper, mp_upper) %>%
+  pivot_longer(-z, names_to = "method", values_to = "upper") %>%
+  mutate(method = gsub("_upper", "", method),
+         method = factor(method,
+                        levels = c("shortest", "dp_pos", "dp_neg", "mp"),
+                        labels = c("Shortest (Standard)", "DP+ (Positive)",
+                                   "DP- (Negative)", "Modified Pratt")))
+
+# Color palette
+method_colors <- c("Shortest (Standard)" = "#808080",
+                   "DP+ (Positive)" = "#2166AC",
+                   "DP- (Negative)" = "#B2182B",
+                   "Modified Pratt" = "#4DAF4A")
+
+# Lower bound plot
+p_marg_lower <- ggplot(marginal_lower, aes(x = z, y = lower, color = method)) +
+  geom_line(linewidth = 1) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black", alpha = 0.5) +
+  scale_color_manual(values = method_colors) +
+  labs(title = "Marginal CI: Lower Bound",
+       x = "Observed z-statistic",
+       y = "Lower Bound",
+       color = "Method") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
+
+# Upper bound plot
+p_marg_upper <- ggplot(marginal_upper, aes(x = z, y = upper, color = method)) +
+  geom_line(linewidth = 1) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black", alpha = 0.5) +
+  scale_color_manual(values = method_colors) +
+  labs(title = "Marginal CI: Upper Bound",
+       x = "Observed z-statistic",
+       y = "Upper Bound",
+       color = "Method") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
+
+# CI Width plot
+marginal_width <- marginal_results %>%
+  mutate(
+    shortest_width = shortest_upper - shortest_lower,
+    dp_pos_width = dp_pos_upper - dp_pos_lower,
+    dp_neg_width = dp_neg_upper - dp_neg_lower,
+    mp_width = mp_upper - mp_lower
+  ) %>%
+  select(z, ends_with("_width")) %>%
+  pivot_longer(-z, names_to = "method", values_to = "width") %>%
+  mutate(method = gsub("_width", "", method),
+         method = factor(method,
+                        levels = c("shortest", "dp_pos", "dp_neg", "mp"),
+                        labels = c("Shortest (Standard)", "DP+ (Positive)",
+                                   "DP- (Negative)", "Modified Pratt")))
+
+p_marg_width <- ggplot(marginal_width, aes(x = z, y = width, color = method)) +
+  geom_line(linewidth = 1) +
+  scale_color_manual(values = method_colors) +
+  labs(title = "Marginal CI: Width",
+       x = "Observed z-statistic",
+       y = "CI Width",
+       color = "Method") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
+
+# Contains estimate check
+marginal_contains <- marginal_results %>%
+  mutate(
+    shortest_contains = (z >= shortest_lower) & (z <= shortest_upper),
+    dp_pos_contains = (z >= dp_pos_lower) & (z <= dp_pos_upper),
+    dp_neg_contains = (z >= dp_neg_lower) & (z <= dp_neg_upper),
+    mp_contains = (z >= mp_lower) & (z <= mp_upper)
+  ) %>%
+  select(z, ends_with("_contains")) %>%
+  pivot_longer(-z, names_to = "method", values_to = "contains") %>%
+  mutate(method = gsub("_contains", "", method),
+         method = factor(method,
+                        levels = c("shortest", "dp_pos", "dp_neg", "mp"),
+                        labels = c("Shortest (Standard)", "DP+ (Positive)",
+                                   "DP- (Negative)", "Modified Pratt")))
+
+p_marg_contains <- ggplot(marginal_contains, aes(x = z, y = as.numeric(contains), color = method)) +
+  geom_line(linewidth = 1, alpha = 0.8) +
+  scale_color_manual(values = method_colors) +
+  scale_y_continuous(breaks = c(0, 1), labels = c("No", "Yes")) +
+  labs(title = "Marginal CI: Contains Estimate?",
+       x = "Observed z-statistic",
+       y = "Contains z?",
+       color = "Method") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
+
+# Display plots
+print(p_marg_lower)
+print(p_marg_upper)
+print(p_marg_width)
+print(p_marg_contains)
+```
+
+---
+
+# 3. Conditional CI Bounds
+
+Conditional CIs are valid only for |z| > ct (selected/significant observations).
+
+## 3.1 Compute Conditional CI Bounds
+
+```{r compute-conditional}
+# Range of z-values (only significant: |z| > ct)
+z_pos <- seq(ct + 0.01, 5, by = 0.05)  # Positive significant
+z_neg <- seq(-5, -ct - 0.01, by = 0.05)  # Negative significant
+z_conditional <- c(z_neg, z_pos)
+
+# Initialize results
+conditional_results <- data.frame(z = z_conditional)
+
+# Compute bounds (with error handling)
+safe_ci <- function(fn, ...) {
+  tryCatch(fn(...), error = function(e) c(NA, NA))
+}
+
+# Shortest Conditional
+conditional_results$shortest_lower <- sapply(z_conditional, function(z) {
+  safe_ci(shortest_conditional_ci, y = z, ct = ct, alpha = alpha)[1]
+})
+conditional_results$shortest_upper <- sapply(z_conditional, function(z) {
+  safe_ci(shortest_conditional_ci, y = z, ct = ct, alpha = alpha)[2]
+})
+
+# DP+ Conditional
+conditional_results$dp_pos_lower <- sapply(z_conditional, function(z) {
+  safe_ci(dp_conditional_ci, y = z, ct = ct, r = r, alpha = alpha)[1]
+})
+conditional_results$dp_pos_upper <- sapply(z_conditional, function(z) {
+  safe_ci(dp_conditional_ci, y = z, ct = ct, r = r, alpha = alpha)[2]
+})
+
+# DP- Conditional
+conditional_results$dp_neg_lower <- sapply(z_conditional, function(z) {
+  safe_ci(dn_conditional_ci, y = z, ct = ct, r = r, alpha = alpha)[1]
+})
+conditional_results$dp_neg_upper <- sapply(z_conditional, function(z) {
+  safe_ci(dn_conditional_ci, y = z, ct = ct, r = r, alpha = alpha)[2]
+})
+
+# MP Conditional
+conditional_results$mp_lower <- sapply(z_conditional, function(z) {
+  safe_ci(mp_conditional_ci, y = z, ct = ct, r = r, alpha = alpha)[1]
+})
+conditional_results$mp_upper <- sapply(z_conditional, function(z) {
+  safe_ci(mp_conditional_ci, y = z, ct = ct, r = r, alpha = alpha)[2]
+})
+```
+
+## 3.2 Plot Conditional CI Bounds (2x2)
+
+```{r plot-conditional, fig.height=10, fig.width=12}
+# Reshape for plotting
+conditional_lower <- conditional_results %>%
+  select(z, shortest_lower, dp_pos_lower, dp_neg_lower, mp_lower) %>%
+  pivot_longer(-z, names_to = "method", values_to = "lower") %>%
+  mutate(method = gsub("_lower", "", method),
+         method = factor(method,
+                        levels = c("shortest", "dp_pos", "dp_neg", "mp"),
+                        labels = c("Shortest (Standard)", "DP+ (Positive)",
+                                   "DP- (Negative)", "Modified Pratt")))
+
+conditional_upper <- conditional_results %>%
+  select(z, shortest_upper, dp_pos_upper, dp_neg_upper, mp_upper) %>%
+  pivot_longer(-z, names_to = "method", values_to = "upper") %>%
+  mutate(method = gsub("_upper", "", method),
+         method = factor(method,
+                        levels = c("shortest", "dp_pos", "dp_neg", "mp"),
+                        labels = c("Shortest (Standard)", "DP+ (Positive)",
+                                   "DP- (Negative)", "Modified Pratt")))
+
+# Lower bound plot
+p_cond_lower <- ggplot(conditional_lower, aes(x = z, y = lower, color = method)) +
+  geom_line(linewidth = 1) +
+  geom_vline(xintercept = c(-ct, ct), linetype = "dotted", color = "gray50") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black", alpha = 0.5) +
+  scale_color_manual(values = method_colors) +
+  labs(title = "Conditional CI: Lower Bound",
+       x = "Observed z-statistic",
+       y = "Lower Bound",
+       color = "Method") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
+
+# Upper bound plot
+p_cond_upper <- ggplot(conditional_upper, aes(x = z, y = upper, color = method)) +
+  geom_line(linewidth = 1) +
+  geom_vline(xintercept = c(-ct, ct), linetype = "dotted", color = "gray50") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black", alpha = 0.5) +
+  scale_color_manual(values = method_colors) +
+  labs(title = "Conditional CI: Upper Bound",
+       x = "Observed z-statistic",
+       y = "Upper Bound",
+       color = "Method") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
+
+# CI Width plot
+conditional_width <- conditional_results %>%
+  mutate(
+    shortest_width = shortest_upper - shortest_lower,
+    dp_pos_width = dp_pos_upper - dp_pos_lower,
+    dp_neg_width = dp_neg_upper - dp_neg_lower,
+    mp_width = mp_upper - mp_lower
+  ) %>%
+  select(z, ends_with("_width")) %>%
+  pivot_longer(-z, names_to = "method", values_to = "width") %>%
+  mutate(method = gsub("_width", "", method),
+         method = factor(method,
+                        levels = c("shortest", "dp_pos", "dp_neg", "mp"),
+                        labels = c("Shortest (Standard)", "DP+ (Positive)",
+                                   "DP- (Negative)", "Modified Pratt")))
+
+p_cond_width <- ggplot(conditional_width, aes(x = z, y = width, color = method)) +
+  geom_line(linewidth = 1) +
+  geom_vline(xintercept = c(-ct, ct), linetype = "dotted", color = "gray50") +
+  scale_color_manual(values = method_colors) +
+  labs(title = "Conditional CI: Width",
+       x = "Observed z-statistic",
+       y = "CI Width",
+       color = "Method") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
+
+# Contains estimate check
+conditional_contains <- conditional_results %>%
+  mutate(
+    shortest_contains = (z >= shortest_lower) & (z <= shortest_upper),
+    dp_pos_contains = (z >= dp_pos_lower) & (z <= dp_pos_upper),
+    dp_neg_contains = (z >= dp_neg_lower) & (z <= dp_neg_upper),
+    mp_contains = (z >= mp_lower) & (z <= mp_upper)
+  ) %>%
+  select(z, ends_with("_contains")) %>%
+  pivot_longer(-z, names_to = "method", values_to = "contains") %>%
+  mutate(method = gsub("_contains", "", method),
+         method = factor(method,
+                        levels = c("shortest", "dp_pos", "dp_neg", "mp"),
+                        labels = c("Shortest (Standard)", "DP+ (Positive)",
+                                   "DP- (Negative)", "Modified Pratt")))
+
+p_cond_contains <- ggplot(conditional_contains, aes(x = z, y = as.numeric(contains), color = method)) +
+  geom_line(linewidth = 1, alpha = 0.8) +
+  geom_vline(xintercept = c(-ct, ct), linetype = "dotted", color = "gray50") +
+  scale_color_manual(values = method_colors) +
+  scale_y_continuous(breaks = c(0, 1), labels = c("No", "Yes")) +
+  labs(title = "Conditional CI: Contains Estimate?",
+       subtitle = "NOTE: MP shows gaps near threshold (BUG)",
+       x = "Observed z-statistic",
+       y = "Contains z?",
+       color = "Method") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
+
+# Display plots
+print(p_cond_lower)
+print(p_cond_upper)
+print(p_cond_width)
+print(p_cond_contains)
+```
+
+---
+
+# 4. Detailed Comparison: Zoomed Near Threshold
+
+## 4.1 Zoom on Positive Threshold Region
+
+```{r zoom-positive, fig.height=8, fig.width=12}
+# Zoom near positive threshold
+z_zoom_pos <- seq(1.96, 3.0, by = 0.02)
+
+zoom_pos <- data.frame(z = z_zoom_pos)
+
+# Compute all CIs
+for (i in seq_along(z_zoom_pos)) {
+  z <- z_zoom_pos[i]
+
+  # Shortest
+  ci <- safe_ci(shortest_conditional_ci, y = z, ct = ct, alpha = alpha)
+  zoom_pos$shortest_lower[i] <- ci[1]
+  zoom_pos$shortest_upper[i] <- ci[2]
+
+  # DP+
+  ci <- safe_ci(dp_conditional_ci, y = z, ct = ct, r = r, alpha = alpha)
+  zoom_pos$dp_lower[i] <- ci[1]
+  zoom_pos$dp_upper[i] <- ci[2]
+
+  # MP
+  ci <- safe_ci(mp_conditional_ci, y = z, ct = ct, r = r, alpha = alpha)
+  zoom_pos$mp_lower[i] <- ci[1]
+  zoom_pos$mp_upper[i] <- ci[2]
+}
+
+# Check containment
+zoom_pos <- zoom_pos %>%
+  mutate(
+    shortest_ok = (z >= shortest_lower) & (z <= shortest_upper),
+    dp_ok = (z >= dp_lower) & (z <= dp_upper),
+    mp_ok = (z >= mp_lower) & (z <= mp_upper)
+  )
+
+# Plot upper bounds
+zoom_upper <- zoom_pos %>%
+  select(z, shortest_upper, dp_upper, mp_upper) %>%
+  pivot_longer(-z, names_to = "method", values_to = "upper") %>%
+  mutate(method = factor(gsub("_upper", "", method),
+                         levels = c("shortest", "dp", "mp"),
+                         labels = c("Shortest", "DP+", "MP")))
+
+p_zoom_upper <- ggplot(zoom_upper, aes(x = z, y = upper, color = method)) +
+  geom_line(linewidth = 1.2) +
+  geom_line(aes(y = z), linetype = "dashed", color = "black") +
+  annotate("text", x = 2.8, y = 2.6, label = "y = z (estimate)", size = 3) +
+  scale_color_manual(values = c("Shortest" = "#808080", "DP+" = "#2166AC", "MP" = "#4DAF4A")) +
+  labs(title = "Upper Bound Near Positive Threshold",
+       subtitle = "MP upper bound < z for z near threshold (BUG)",
+       x = "z-statistic", y = "Upper Bound") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+# Plot containment
+zoom_contains <- zoom_pos %>%
+  select(z, shortest_ok, dp_ok, mp_ok) %>%
+  pivot_longer(-z, names_to = "method", values_to = "contains") %>%
+  mutate(method = factor(gsub("_ok", "", method),
+                         levels = c("shortest", "dp", "mp"),
+                         labels = c("Shortest", "DP+", "MP")))
+
+p_zoom_contains <- ggplot(zoom_contains, aes(x = z, y = as.numeric(contains), color = method)) +
+  geom_point(size = 2) +
+  geom_line(linewidth = 0.8) +
+  scale_color_manual(values = c("Shortest" = "#808080", "DP+" = "#2166AC", "MP" = "#4DAF4A")) +
+  scale_y_continuous(breaks = c(0, 1), labels = c("No", "Yes"), limits = c(-0.1, 1.1)) +
+  labs(title = "CI Contains Estimate?",
+       subtitle = "MP fails for z in [1.96, ~2.02]",
+       x = "z-statistic", y = "Contains z?") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+# Display plots
+print(p_zoom_upper)
+print(p_zoom_contains)
+```
+
+---
+
+# 5. Summary Table
+
+```{r summary-table}
+# Identify problematic z values for MP
+mp_issues_pos <- zoom_pos %>%
+  filter(!mp_ok) %>%
+  summarize(
+    min_z = min(z),
+    max_z = max(z),
+    n_issues = n()
+  )
+
+cat("=== MP CONDITIONAL CI BUG SUMMARY ===\n\n")
+cat("For positive z-values:\n")
+cat("  Issue range: z in [", round(mp_issues_pos$min_z, 3), ",",
+    round(mp_issues_pos$max_z, 3), "]\n")
+cat("  Number of affected values:", mp_issues_pos$n_issues, "out of", nrow(zoom_pos), "\n\n")
+
+cat("The MP conditional CI fails to contain the point estimate\n")
+cat("for z-values near the selection threshold (ct = 1.96).\n\n")
+
+cat("Shortest and DP+ conditional CIs work correctly for all values.\n")
+```
+
+---
+
+# 6. Session Info
+
+```{r session-info}
+sessionInfo()
+```

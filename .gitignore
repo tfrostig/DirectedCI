@@ -3,3 +3,18 @@
 .RData
 .Ruserdata
 inst/doc
+
+# Generated files
+*.html
+*.pdf
+Rplots.pdf
+
+# Papers and real data examples (contain sensitive/proprietary data)
+papers/
+
+# Screenshots and temp files
+*.png
+.DS_Store
+
+# Claude config
+.claude/
