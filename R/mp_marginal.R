@@ -59,11 +59,13 @@ mp_marginal_ar <- function(theta, r = 1.3, alpha = 0.05) {
 #' Modified Pratt Marginal Confidence Interval
 #'
 #' Computes the Modified Pratt confidence interval for a normal mean.
-#' Prefers positive direction by default.
+#' Prefers positive direction by default. The CI truncates at 0 for
+#' certain y values to give more power to determine the sign.
 #'
 #' @param y Numeric. Observed test statistic (on Z-scale).
 #' @param r Numeric >= 1. Inflation factor. Default 1.3.
 #' @param alpha Numeric in (0, 1). Significance level. Default 0.05.
+#' @param epsilon Numeric. Small value for open intervals at 0. Default 0.
 #'
 #' @return Numeric vector of length 2: c(lower, upper).
 #'
@@ -72,35 +74,43 @@ mp_marginal_ar <- function(theta, r = 1.3, alpha = 0.05) {
 #' mp_marginal_ci(y = -1.5, r = 1.3, alpha = 0.05)
 #'
 #' @export
-mp_marginal_ci <- function(y, r = 1.3, alpha = 0.05) {
-  # Use symmetry: for positive y, compute for -y and reflect
-  if (y > 0) {
-    ci <- mp_marginal_ci(-y, r, alpha)
-    # Reflect: swap and negate
-    return(c(-ci[2], -ci[1]))
+mp_marginal_ci <- function(y, r = 1.3, alpha = 0.05, epsilon = 0) {
+  # Handle negative y by symmetry: compute for |y| and reflect
+  if (y < 0) {
+    ci <- mp_marginal_ci(-y, r, alpha, epsilon)
+    return(sort(-ci))
   }
 
+  # Find beta that achieves desired length expansion
+  # Length function: len(beta) = qnorm(1 - (alpha - beta)) - qnorm(beta)
+  # We want: len(beta) = r * 2 * qnorm(1 - alpha/2)
   f <- function(beta) {
-    qnorm(1 - (alpha - beta)) - qnorm(beta) - r * (2 * qnorm(1 - alpha / 2))
+    qnorm(1 - (alpha - beta)) - qnorm(beta) - r * 2 * qnorm(1 - alpha / 2)
   }
 
   eps <- .Machine$double.eps
-  beta_star <- uniroot(f, c(eps, alpha / 2 - eps), tol = eps)$root
+  beta <- uniroot(f, c(alpha / 2, alpha - eps), tol = eps)$root
 
-  neg_threshold_1 <- -qnorm(1 - alpha / 2)
-  neg_threshold_2 <- -qnorm(1 - (alpha - beta_star))
+  # Compute the two quantile values
+  z_long <- qnorm(1 - (alpha - beta))   # Longer tail
+  z_short <- qnorm(1 - beta)            # Shorter tail
+  z_alpha <- qnorm(1 - alpha / 2)       # Standard threshold
 
-  if (y < neg_threshold_1) {
-    lower <- y - qnorm(1 - (alpha - beta_star))
-    upper <- y - qnorm(beta_star)
-  } else if (y >= neg_threshold_1 && y < neg_threshold_2) {
-    lower <- y - qnorm(1 - (alpha - beta_star))
-    upper <- 0  # open interval
+  # Compute CI based on y region (for positive y)
+  # Four regimes with truncation at 0 for middle regimes
+  if (y >= 0 && y < z_short) {
+    # Small y: full symmetric interval
+    ci <- c(y - z_short, y + z_short)
+  } else if (y >= z_short && y < z_alpha) {
+    # Medium-small y: truncate lower bound to 0 (closed)
+    ci <- c(0, y + z_short)
+  } else if (y >= z_alpha && y < z_long) {
+    # Medium-large y: truncate lower bound to 0 (open)
+    ci <- c(0 + epsilon, y + z_short)
   } else {
-    # y >= neg_threshold_2 && y <= 0
-    lower <- y + qnorm(alpha - beta_star)
-    upper <- y - qnorm(alpha - beta_star)
+    # Large y: full asymmetric interval
+    ci <- c(y - z_long, y + z_short)
   }
 
-  c(lower, upper)
+  ci
 }
