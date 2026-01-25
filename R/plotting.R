@@ -319,16 +319,16 @@ plot_ci_comparison <- function(estimates,
   # Combine all results
   plot_df <- do.call(rbind, ci_results)
 
-  # Create nice method labels
+  # Create nice method labels (unified naming - facets distinguish BY vs Conditional)
   method_labels <- c(
     "standard" = "Unadjusted",
     "bonferroni" = "Bonferroni",
-    "by_standard" = "BY Unadjusted",
-    "by_dp" = "BY DP+",
-    "by_mp" = "BY MP",
-    "cond_standard" = "Cond. Unadjusted",
-    "cond_dp" = "Cond. DP+",
-    "cond_mp" = "Cond. MP"
+    "by_standard" = "Unadjusted",
+    "by_dp" = "DP+",
+    "by_mp" = "MP",
+    "cond_standard" = "Unadjusted",
+    "cond_dp" = "DP+",
+    "cond_mp" = "MP"
   )
 
   plot_df$method_label <- method_labels[plot_df$method]
@@ -357,14 +357,10 @@ plot_ci_comparison <- function(estimates,
   # Default color palette (must match method_labels)
   if (is.null(color_palette)) {
     color_palette <- c(
-      "Unadjusted" = "#808080",
+      "Unadjusted" = "#d7191c",
       "Bonferroni" = "#A9A9A9",
-      "BY Unadjusted" = "#2166AC",
-      "BY DP+" = "#00CED1",
-      "BY MP" = "#4DAF4A",
-      "Cond. Unadjusted" = "#D62728",
-      "Cond. DP+" = "#000000",
-      "Cond. MP" = "#FF7F0E"
+      "DP+" = "#2b83ba",
+      "MP" = "#abdda4"
     )
   }
 
