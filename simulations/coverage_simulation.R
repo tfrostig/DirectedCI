@@ -211,6 +211,9 @@ run_coverage_simulation <- function(theta_seq = seq(-3, 3, by = 0.1),
 plot_coverage <- function(results, alpha = 0.05) {
   nominal_coverage <- 1 - alpha
 
+  # Method name mapping
+  method_names <- c("shortest" = "Unadjusted", "dp_pos" = "DP+", "dp_neg" = "DP-", "mp" = "MP")
+
   # Reshape marginal data to long format using base R
   marginal_cols <- c("marginal_shortest", "marginal_dp_pos", "marginal_dp_neg", "marginal_mp")
   marginal_long <- data.frame(
@@ -218,8 +221,9 @@ plot_coverage <- function(results, alpha = 0.05) {
     method = rep(gsub("marginal_", "", marginal_cols), each = nrow(results)),
     coverage = unlist(results[marginal_cols])
   )
+  marginal_long$method <- method_names[marginal_long$method]
   marginal_long$method <- factor(marginal_long$method,
-                                  levels = c("shortest", "dp_pos", "dp_neg", "mp"))
+                                  levels = c("Unadjusted", "DP+", "DP-", "MP"))
 
   # Reshape conditional data to long format
   conditional_cols <- c("conditional_shortest", "conditional_dp_pos", "conditional_dp_neg", "conditional_mp")
@@ -228,8 +232,12 @@ plot_coverage <- function(results, alpha = 0.05) {
     method = rep(gsub("conditional_", "", conditional_cols), each = nrow(results)),
     coverage = unlist(results[conditional_cols])
   )
+  conditional_long$method <- method_names[conditional_long$method]
   conditional_long$method <- factor(conditional_long$method,
-                                     levels = c("shortest", "dp_pos", "dp_neg", "mp"))
+                                     levels = c("Unadjusted", "DP+", "DP-", "MP"))
+
+  # Color palette
+  method_colors <- c("Unadjusted" = "#d7191c", "DP+" = "#2b83ba", "DP-" = "#1a5276", "MP" = "#abdda4")
 
   # Plot marginal coverage
   p_marginal <- ggplot(marginal_long, aes(x = theta, y = coverage, color = method)) +
@@ -241,7 +249,7 @@ plot_coverage <- function(results, alpha = 0.05) {
       y = "Empirical Coverage",
       color = "Method"
     ) +
-    scale_color_brewer(palette = "Set1") +
+    scale_color_manual(values = method_colors) +
     theme_bw() +
     theme(legend.position = "bottom") +
     ylim(c(min(0.85, min(marginal_long$coverage, na.rm = TRUE) - 0.02), 1))
@@ -256,7 +264,7 @@ plot_coverage <- function(results, alpha = 0.05) {
       y = "Empirical Coverage",
       color = "Method"
     ) +
-    scale_color_brewer(palette = "Set1") +
+    scale_color_manual(values = method_colors) +
     theme_bw() +
     theme(legend.position = "bottom") +
     ylim(c(min(0.85, min(conditional_long$coverage, na.rm = TRUE) - 0.02), 1))

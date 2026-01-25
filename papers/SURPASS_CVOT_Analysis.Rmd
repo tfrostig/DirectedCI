@@ -268,8 +268,8 @@ results_df %>%
 ggplot(results_df, aes(y = reorder(endpoint, HR), x = HR)) +
   geom_vline(xintercept = 1, linetype = "dashed", color = "gray40", linewidth = 0.8) +
   geom_errorbarh(aes(xmin = std_lower, xmax = std_upper),
-                 height = 0.3, linewidth = 1, color = "#E41A1C") +
-  geom_point(aes(shape = significant), size = 3.5, color = "#E41A1C") +
+                 height = 0.3, linewidth = 1, color = "#d7191c") +
+  geom_point(aes(shape = significant), size = 3.5, color = "#d7191c") +
   scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1),
                      labels = c("TRUE" = "Significant", "FALSE" = "Not Significant")) +
   scale_x_continuous(breaks = seq(0.7, 1.1, 0.1), limits = c(0.65, 1.15)) +
@@ -290,15 +290,11 @@ ggplot(results_df, aes(y = reorder(endpoint, HR), x = HR)) +
 
 ## 5.2 Comprehensive CI Comparison: All Methods
 
-This plot compares all available CI methods for the significant endpoints:
+This plot compares all available CI methods for the significant endpoints. The left facet shows BY-adjusted CIs (multiplicity correction), and the right facet shows Conditional CIs (selection correction):
 
-- **Unadjusted**: Unadjusted 95% CI (as reported in paper)
-- **BY Unadjusted**: Benjamini-Yekutieli adjusted symmetric CI (multiplicity correction)
-- **BY DP-**: BY-adjusted direction-preferring CI (multiplicity + direction)
-- **BY MP**: BY-adjusted modified Pratt CI (multiplicity + direction)
-- **Cond. Unadjusted**: Conditional CI accounting for selection
-- **Cond. DP-**: Conditional direction-preferring CI (selection + direction)
-- **Cond. MP**: Conditional modified Pratt CI (selection + direction)
+- **Unadjusted**: Symmetric CI (standard in left facet, shortest in right facet)
+- **DP+**: Direction-preferring CI favoring the expected benefit direction
+- **MP**: Modified Pratt CI (symmetric direction-preferring)
 
 ```{r comprehensive-comparison, fig.height=9, fig.width=14}
 # Use package's built-in plot for comprehensive comparison
@@ -325,13 +321,11 @@ if (length(sig_idx) > 0) {
 
 ### Interpretation Guide
 
-| CI Type | Adjustment | Purpose |
-|---------|------------|---------|
-| Unadjusted | None | Original paper result |
-| BY Unadjusted | Multiplicity | Controls family-wise error across endpoints |
-| BY DP-/MP | Multiplicity + Direction | Asymmetric CI favoring expected benefit |
-| Cond. Unadjusted | Selection | Accounts for only reporting significant results |
-| Cond. DP-/MP | Selection + Direction | Combines selection correction with directional preference |
+| CI Type | Left Facet (BY Adjusted) | Right Facet (Conditional) |
+|---------|--------------------------|---------------------------|
+| Unadjusted | Multiplicity-corrected symmetric CI | Selection-corrected shortest CI |
+| DP+ | Multiplicity + direction preference | Selection + direction preference |
+| MP | Multiplicity + modified Pratt | Selection + modified Pratt |
 
 ---
 

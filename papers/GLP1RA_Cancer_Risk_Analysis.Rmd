@@ -330,15 +330,11 @@ ggplot(results_df, aes(y = reorder(cancer, -HR), x = HR)) +
 
 ## 5.2 Comprehensive CI Comparison: All Methods
 
-This plot compares all available CI methods for the significant protective endpoints:
+This plot compares all available CI methods for the significant protective endpoints. The left facet shows BY-adjusted CIs (multiplicity correction), and the right facet shows Conditional CIs (selection correction):
 
-- **Unadjusted**: Unadjusted 95% CI (as reported in paper)
-- **BY Unadjusted**: Benjamini-Yekutieli adjusted symmetric CI (multiplicity correction)
-- **BY DP-**: BY-adjusted direction-preferring CI (multiplicity + direction)
-- **BY MP**: BY-adjusted modified Pratt CI (multiplicity + direction)
-- **Cond. Unadjusted**: Conditional CI accounting for selection
-- **Cond. DP-**: Conditional direction-preferring CI (selection + direction)
-- **Cond. MP**: Conditional modified Pratt CI (selection + direction)
+- **Unadjusted**: Symmetric CI (standard in left facet, shortest in right facet)
+- **DP+**: Direction-preferring CI favoring the expected protection direction
+- **MP**: Modified Pratt CI (symmetric direction-preferring)
 
 **Note**: We exclude kidney cancer from this comparison because its effect (HR > 1) contradicts our preferred direction of protection. For safety signals, standard symmetric CIs should be used.
 
@@ -367,13 +363,11 @@ if (length(sig_prot_idx) > 0) {
 
 ### Interpretation Guide
 
-| CI Type | Adjustment | Purpose |
-|---------|------------|---------|
-| Unadjusted | None | Original paper result |
-| BY Unadjusted | Multiplicity | Controls family-wise error across 15 cancer types |
-| BY DP-/MP | Multiplicity + Direction | Asymmetric CI favoring expected protection |
-| Cond. Unadjusted | Selection | Accounts for only reporting significant results |
-| Cond. DP-/MP | Selection + Direction | Combines selection correction with directional preference |
+| CI Type | Left Facet (BY Adjusted) | Right Facet (Conditional) |
+|---------|--------------------------|---------------------------|
+| Unadjusted | Multiplicity-corrected symmetric CI | Selection-corrected shortest CI |
+| DP+ | Multiplicity + direction preference | Selection + direction preference |
+| MP | Multiplicity + modified Pratt | Selection + modified Pratt |
 
 ### Note on Kidney Cancer
 

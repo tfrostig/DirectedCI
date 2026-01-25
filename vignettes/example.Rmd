@@ -32,13 +32,13 @@ plot_dp_forest <- function(df,
 
   # Build a long-format CI table (mp/std/unadjusted not needed here)
   marginal_df <- df %>%
-    mutate(type = "Marginal DP+",
+    mutate(type = "DP+",
            lower = .data[[marg_L]],
            upper = .data[[marg_U]],
            setting = "BY Adjusted CIs")
 
   conditional_df <- df %>%
-    mutate(type = "Conditional DP+",
+    mutate(type = "DP+",
            lower = .data[[cond_L]],
            upper = .data[[cond_U]],
            setting = "Conditional CIs")
@@ -48,11 +48,10 @@ plot_dp_forest <- function(df,
     mutate(setting = factor(setting,
                             levels = c("BY Adjusted CIs", "Conditional CIs"),
                             ordered = TRUE),
-           type = factor(type, levels = c("Marginal DP+", "Conditional DP+")))
+           type = factor(type, levels = c("DP+")))
 
-  # Colors (matching PDF figures)
-  color_vec <- c("Marginal DP+" = "#00CED1",
-                 "Conditional DP+" = "#000000")
+  # Colors (unified naming - facets distinguish BY vs Conditional)
+  color_vec <- c("DP+" = "#2b83ba")
 
   # Build the plot
   ggplot(ci_long,

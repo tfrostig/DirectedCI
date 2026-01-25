@@ -1,0 +1,357 @@
+---
+title: "DirectedCI Analysis: Manson et al. (2019) Secondary Endpoints"
+subtitle: "Vitamin D and Cardiovascular Disease Prevention"
+author: "DirectedCI Package Analysis"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    theme: cosmo
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 10,
+  fig.height = 7
+)
+```
+
+# 1. Introduction
+
+This analysis applies the **DirectedCI** package to secondary endpoints from the VITAL trial (Manson et al., 2019), which examined the effects of vitamin D supplementation on cardiovascular disease and cancer outcomes.
+
+## 1.1 Load Required Packages
+
+```{r load-packages}
+devtools::load_all("..", quiet = TRUE)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(knitr)
+library(kableExtra)
+```
+
+## 1.2 Study Context
+
+The VITAL trial was a randomized, placebo-controlled trial examining whether vitamin D3 supplementation reduces risk of cardiovascular events and cancer. The preferred direction is **negative** (HR < 1), indicating a protective effect of vitamin D supplementation.
+
+---
+
+# 2. Data
+
+## 2.1 Extract Endpoint Data
+
+```{r extract-data}
+# Manson et al. (2019) secondary endpoints data
+dat <- data.frame(
+  index = seq(1, 17, 1),
+  y     = c(0.93, 0.72, 1.04, 0.96, 0.78, 0.99, 0.83, 0.96, 1.32, 0.76, 0.50, 1.10, 0.90, 1.15, 1.23, 0.97, 1.02),
+  lower = c(0.82, 0.59, 0.83, 0.76, 0.63, 0.73, 0.71, 0.74, 0.72, 0.49, 0.26, 0.60, 0.70, 0.94, 0.83, 0.79, 0.90),
+  upper = c(1.04, 0.90, 1.31, 1.21, 0.95, 1.33, 0.97, 1.24, 2.39, 1.16, 0.97, 2.01, 1.16, 1.39, 1.83, 1.20, 1.15)
+)
+
+# Display the data
+dat %>%
+  kable(caption = "Manson et al. (2019) Secondary Endpoints",
+        col.names = c("Index", "HR", "CI Lower", "CI Upper")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+## 2.2 Calculate Log-Scale Statistics
+
+```{r calculate-stats}
+# Extract SE on log-scale
+ME_logscale <- (-log(dat$lower) + log(dat$upper)) / 2
+SE_logscale <- ME_logscale / qnorm(0.975)
+
+# Calculate log(HR) and z-statistics
+dat <- dat %>%
+  mutate(
+    log_HR = log(y),
+    SE = SE_logscale,
+    z_stat = log_HR / SE,
+    significant = abs(z_stat) > qnorm(0.975)
+  )
+
+# SNR (signal-to-noise ratio)
+snr <- dat$log_HR / dat$SE
+
+cat("Signal-to-Noise Ratios (SNR):\n")
+print(round(snr, 3))
+
+cat("\nNumber of significant endpoints (|z| > 1.96):", sum(dat$significant), "\n")
+cat("Significant endpoint indices:", which(dat$significant), "\n")
+```
+
+---
+
+# 3. Analysis Parameters
+
+```{r set-params}
+alpha <- 0.05
+m <- nrow(dat)  # Total number of endpoints (17)
+ct <- qnorm(1 - alpha / 2)  # 1.96
+r <- 1.3  # Inflation parameter
+
+# Number of selected (significant) endpoints
+R <- sum(dat$significant)
+
+# BY adjustment level: (R/m) * alpha
+by_alpha <- (R / m) * alpha
+
+cat("Analysis Parameters:\n")
+cat("- Alpha:", alpha, "\n")
+cat("- Total endpoints (m):", m, "\n")
+cat("- Selected endpoints (R):", R, "\n")
+cat("- Critical value (ct):", round(ct, 3), "\n")
+cat("- Bonferroni alpha:", round(alpha / m, 5), "\n")
+cat("- BY-adjusted alpha (R*alpha/m):", round(by_alpha, 5), "\n")
+cat("- Inflation parameter (r):", r, "\n")
+cat("- Preferred direction: NEGATIVE (HR < 1, protection)\n")
+```
+
+---
+
+# 4. Compute Confidence Intervals
+
+```{r compute-cis}
+# Bonferroni critical value
+bonf_z <- qnorm(1 - alpha / (2 * m))
+
+# Compute all CI types
+results <- dat %>%
+  mutate(
+    # Standard 1-alpha CI (as reported)
+    std_lower = y * exp(-qnorm(0.975) * SE),
+    std_upper = y * exp(qnorm(0.975) * SE),
+
+    # Bonferroni adjusted CI (alpha/m)
+    bonf_lower = y * exp(-bonf_z * SE),
+    bonf_upper = y * exp(bonf_z * SE)
+  )
+
+# For selected endpoints, compute BY-adjusted and conditional CIs
+results$by_std_lower <- NA
+results$by_std_upper <- NA
+results$by_dp_lower <- NA
+results$by_dp_upper <- NA
+results$cond_dp_lower <- NA
+results$cond_dp_upper <- NA
+
+# BY-adjusted critical value
+by_z <- qnorm(1 - by_alpha / 2)
+
+for (i in 1:nrow(results)) {
+  z <- results$z_stat[i]
+  se <- results$SE[i]
+  hr <- results$y[i]
+
+  if (results$significant[i]) {
+    # BY-adjusted standard CI
+    results$by_std_lower[i] <- hr * exp(-by_z * se)
+    results$by_std_upper[i] <- hr * exp(by_z * se)
+
+    # BY-adjusted direction-preferring CI (negative direction preferred)
+    by_dp_z <- tryCatch({
+      dn_marginal_ci(z, r_l = r, alpha = by_alpha)
+    }, error = function(e) c(NA, NA))
+    results$by_dp_lower[i] <- exp(by_dp_z[1] * se)
+    results$by_dp_upper[i] <- exp(by_dp_z[2] * se)
+
+    # Conditional direction-preferring CI
+    cond_dp_z <- tryCatch({
+      dn_conditional_ci(z, ct = ct, r = r, alpha = alpha)
+    }, error = function(e) c(NA, NA))
+    results$cond_dp_lower[i] <- exp(cond_dp_z[1] * se)
+    results$cond_dp_upper[i] <- exp(cond_dp_z[2] * se)
+  }
+}
+
+# Display results for significant endpoints
+results %>%
+  filter(significant) %>%
+  select(index, y, z_stat, std_lower, std_upper, by_dp_lower, by_dp_upper, cond_dp_lower, cond_dp_upper) %>%
+  mutate(across(where(is.numeric), ~round(., 3))) %>%
+  kable(caption = "CI Comparison for Selected Endpoints",
+        col.names = c("Index", "HR", "z", "Std L", "Std U", "BY DP- L", "BY DP- U", "Cond DP- L", "Cond DP- U")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+---
+
+# 5. Figure 3: BY-Adjusted CIs Comparison
+
+For the `r m` secondary endpoints in Manson et al. (2019) and $\alpha = 0.05$: the point estimate (red square) along with the standard $1 - \alpha$ level CIs (red points); the Bonferroni adjusted standard $1 - \alpha/`r m`$ level CIs (gray dash-dotted lines); the BY05 adjusted standard $1 - `r R`\alpha/`r m`$ level CIs on the `r R` selected outcomes (solid blue); the BY05 adjusted direction-preferring $1 - `r R`\alpha/`r m`$ level CIs on the `r R` selected outcomes (solid cyan).
+
+```{r figure-3, fig.width=12, fig.height=8}
+# Prepare data for plotting - order by HR from smallest to largest
+plot_data <- results %>%
+  select(index, y, significant,
+         std_lower, std_upper,
+         bonf_lower, bonf_upper,
+         by_std_lower, by_std_upper,
+         by_dp_lower, by_dp_upper) %>%
+  arrange(y) %>%
+  mutate(rank = row_number())
+
+# Create Figure 3
+ggplot(plot_data, aes(x = rank)) +
+  # Reference line at HR = 1
+  geom_hline(yintercept = 1, linetype = "dashed", color = "gray50", linewidth = 0.5) +
+
+  # Bonferroni CIs (all endpoints) - gray dash-dotted
+  geom_segment(aes(xend = rank, y = bonf_lower, yend = bonf_upper),
+               linetype = "dotdash", color = "gray50", linewidth = 0.8) +
+
+  # Standard CIs (all endpoints) - red
+  geom_segment(aes(xend = rank, y = std_lower, yend = std_upper),
+               color = "#d7191c", linewidth = 0.6) +
+  geom_point(aes(y = std_lower), color = "#d7191c", size = 2) +
+  geom_point(aes(y = std_upper), color = "#d7191c", size = 2) +
+
+  # BY-adjusted standard CIs (selected only) - solid blue
+  geom_segment(data = filter(plot_data, significant),
+               aes(xend = rank, y = by_std_lower, yend = by_std_upper),
+               color = "#2b83ba", linewidth = 1.2) +
+
+  # BY-adjusted DP CIs (selected only) - solid cyan
+  geom_segment(data = filter(plot_data, significant),
+               aes(xend = rank, y = by_dp_lower, yend = by_dp_upper),
+               color = "#00CED1", linewidth = 1.2,
+               position = position_nudge(x = 0.15)) +
+
+  # Point estimates - red squares
+  geom_point(aes(y = y), color = "#d7191c", shape = 15, size = 3) +
+
+  scale_x_continuous(breaks = 1:17) +
+  scale_y_continuous(breaks = seq(0, 2.5, 0.25), limits = c(0.2, 2.5)) +
+  labs(
+    title = "Figure 3: BY-Adjusted Confidence Intervals",
+    subtitle = paste0("Manson et al. (2019) | ", m, " secondary endpoints | ", R, " selected (p < 0.05)"),
+    x = "Endpoint (ordered by HR)",
+    y = "Hazard Ratio",
+    caption = "Red squares/lines: point estimates and standard CIs | Gray dash-dot: Bonferroni CIs\nBlue: BY-adjusted standard CIs | Cyan: BY-adjusted DP- CIs (selected endpoints only)"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    panel.grid.minor = element_blank()
+  )
+```
+
+---
+
+# 6. Figure 4: Conditional CIs Comparison (Forest Plot Style)
+
+For the `r m` secondary endpoints in Manson et al. (2019) and $\alpha = 0.05$: the point estimate (red square) along with the standard $1 - \alpha$ level CIs (red); the BY05 adjusted direction-preferring $1 - `r R`\alpha/`r m`$ level CIs on the `r R` selected outcomes (solid cyan); the direction-preferring $1 - \alpha$ level conditional CIs on the `r R` selected outcomes (solid black) for the selection rule that the two-sided p-value for the no-effect null hypothesis is at most 0.05.
+
+```{r figure-4, fig.width=12, fig.height=10}
+# Prepare long-format data for forest plot
+# Only include selected endpoints for this figure
+selected_data <- results %>%
+  filter(significant) %>%
+  select(index, y,
+         std_lower, std_upper,
+         by_dp_lower, by_dp_upper,
+         cond_dp_lower, cond_dp_upper)
+
+# Reshape to long format
+ci_long <- selected_data %>%
+  pivot_longer(
+    cols = c(std_lower, std_upper, by_dp_lower, by_dp_upper, cond_dp_lower, cond_dp_upper),
+    names_to = c("method", "bound"),
+    names_pattern = "(.*)_(lower|upper)",
+    values_to = "value"
+  ) %>%
+  pivot_wider(names_from = bound, values_from = value) %>%
+  mutate(
+    method_label = case_when(
+      method == "std" ~ "Unadjusted",
+      method == "by_dp" ~ "BY DP-",
+      method == "cond_dp" ~ "Conditional DP-"
+    ),
+    method_label = factor(method_label, levels = c("Unadjusted", "BY DP-", "Conditional DP-"))
+  )
+
+# Color palette
+method_colors <- c("Unadjusted" = "#d7191c", "BY DP-" = "#00CED1", "Conditional DP-" = "#000000")
+
+# Create Figure 4 (forest plot style)
+ggplot(ci_long, aes(y = factor(index), x = y, color = method_label)) +
+  # Reference line at HR = 1
+  geom_vline(xintercept = 1, linetype = "dashed", color = "gray50", linewidth = 0.5) +
+
+  # Error bars for CIs
+  geom_errorbarh(aes(xmin = lower, xmax = upper),
+                 height = 0.3, linewidth = 0.9,
+                 position = position_dodge(width = 0.6)) +
+
+  # Point estimates
+  geom_point(size = 3, shape = 15,
+             position = position_dodge(width = 0.6)) +
+
+  scale_color_manual(values = method_colors, name = "") +
+  scale_x_continuous(breaks = seq(0.2, 1.2, 0.1), limits = c(0.2, 1.2)) +
+  labs(
+    title = "Figure 4: Conditional CI Comparison (Selected Endpoints)",
+    subtitle = paste0("Manson et al. (2019) | ", R, " endpoints with p < 0.05"),
+    x = "Hazard Ratio",
+    y = "Endpoint Index"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "bottom",
+    plot.title = element_text(face = "bold"),
+    panel.grid.minor = element_blank(),
+    axis.text.y = element_text(size = 12)
+  )
+```
+
+---
+
+# 7. Interpretation
+
+## 7.1 Key Findings
+
+```{r interpretation, echo=FALSE}
+cat("=== KEY FINDINGS ===\n\n")
+
+cat("Selected Endpoints (|z| > 1.96):\n")
+for (i in which(results$significant)) {
+  cat(sprintf("  - Endpoint %d: HR = %.2f, z = %.2f\n",
+              results$index[i], results$y[i], results$z_stat[i]))
+}
+
+cat("\n")
+cat("CI Width Comparison (average for selected endpoints):\n")
+sel <- results %>% filter(significant)
+cat(sprintf("  - Standard CI width: %.3f\n", mean(sel$std_upper - sel$std_lower)))
+cat(sprintf("  - BY DP- CI width: %.3f\n", mean(sel$by_dp_upper - sel$by_dp_lower, na.rm = TRUE)))
+cat(sprintf("  - Conditional DP- CI width: %.3f\n", mean(sel$cond_dp_upper - sel$cond_dp_lower, na.rm = TRUE)))
+```
+
+## 7.2 Summary
+
+- **Figure 3** shows all `r m` endpoints with multiple CI methods. The BY-adjusted CIs (blue, cyan) are only shown for the `r R` selected endpoints that achieved statistical significance at the 0.05 level.
+
+- **Figure 4** focuses on the `r R` selected endpoints, comparing:
+  - **Unadjusted CIs** (red): Standard symmetric CIs as reported
+  - **BY DP- CIs** (cyan): Direction-preferring CIs with multiplicity adjustment
+  - **Conditional DP- CIs** (black): Direction-preferring CIs accounting for selection
+
+The direction-preferring CIs provide tighter bounds in the preferred direction (HR < 1), reflecting the scientific hypothesis that vitamin D supplementation should be protective.
+
+---
+
+# Session Information
+
+```{r session-info}
+sessionInfo()
+```
