@@ -15,7 +15,11 @@ papers/*.pdf
 
 # Screenshots and temp files
 *.png
+.pdf
 .DS_Store
 
 # Claude config
 .claude/
+
+# Context
+figures_for_paper/
