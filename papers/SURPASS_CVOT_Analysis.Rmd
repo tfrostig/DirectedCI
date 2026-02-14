@@ -1,35 +1,22 @@
 ---
 title: "DirectedCI Analysis: SURPASS-CVOT Trial"
 subtitle: "Cardiovascular Outcomes with Tirzepatide versus Dulaglutide"
-author: "DirectedCI Package Analysis"
 date: "`r Sys.Date()`"
 output:
   html_document:
     toc: true
     toc_float: true
-    toc_depth: 3
     theme: cosmo
     code_folding: show
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(
-  echo = TRUE,
-  warning = FALSE,
-  message = FALSE,
-  fig.width = 10,
-  fig.height = 7
-)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, fig.width = 10, fig.height = 7)
 ```
 
-# 1. Introduction
-
-This analysis applies the **DirectedCI** package to the SURPASS-CVOT trial (Nicholls et al., NEJM 2025), which compared tirzepatide versus dulaglutide for cardiovascular outcomes in patients with type 2 diabetes and atherosclerotic cardiovascular disease.
-
-## 1.1 Load Required Packages
+# 1. Setup
 
 ```{r load-packages}
-# Use devtools::load_all() to ensure we get the development version with fixes
 devtools::load_all("..", quiet = TRUE)
 library(ggplot2)
 library(dplyr)
@@ -38,428 +25,239 @@ library(knitr)
 library(kableExtra)
 ```
 
-## 1.2 Study Summary
+**Study**: SURPASS-CVOT (Nicholls et al., NEJM 2025) - Tirzepatide vs Dulaglutide in T2D with ASCVD (n=13,165)
 
-- **Design**: Active-comparator, double-blind, noninferiority trial
-- **Population**: 13,165 patients with T2D and ASCVD
-- **Intervention**: Tirzepatide (up to 15 mg weekly) vs Dulaglutide (1.5 mg weekly)
-- **Primary Endpoint**: Composite of CV death, MI, or stroke (3-point MACE)
-- **Follow-up**: Median 4.0 years
+**Preferred direction**: NEGATIVE (HR < 1, difference < 0 means tirzepatide is better)
 
 ---
 
-# 2. Preferred Direction Rationale
+# 2. Data Extraction
 
-## 2.1 Why We Prefer Tirzepatide to Be Better (Negative Direction)
+## 2.1 Ratio Endpoints (Hazard Ratios)
 
-The **preferred direction is NEGATIVE** (HR < 1, meaning tirzepatide is better):
-
-1. **Mechanistic hypothesis**: Dual GLP-1/GIP agonism expected to provide additive cardiovascular benefits
-2. **Superior metabolic effects**: Greater improvements in HbA1c, weight, lipids vs GLP-1RAs
-3. **Clinical context**: Choosing tirzepatide over proven GLP-1RAs requires evidence of comparable/better CV protection
-
-```{r direction-note, echo=FALSE}
-cat("For hazard ratios comparing Tirzepatide vs Dulaglutide:\n")
-cat("- HR < 1 means Tirzepatide is BETTER (fewer events)\n")
-cat("- log(HR) < 0 corresponds to NEGATIVE direction\n")
-cat("- We PREFER the negative direction (protection)\n")
-```
-
----
-
-# 3. Data Extraction from Paper
-
-## 3.1 Extract Endpoint Statistics from Table 2
-
-```{r extract-data}
-# Create data frame with all endpoints from Table 2 of the paper
-endpoints <- data.frame(
-  name = c("MACE-3 (Primary)",
-           "CV Death",
-           "Myocardial Infarction",
-           "Stroke",
-           "All-Cause Death",
-           "4-Point MACE",
-           "CV Death or HF Hosp"),
+```{r extract-ratio}
+ratio_endpoints <- data.frame(
+  name = c("MACE-3 (Primary)", "CV Death", "Myocardial Infarction", "Stroke",
+           "All-Cause Death", "4-Point MACE", "CV Death or HF Hosp"),
   HR = c(0.92, 0.89, 0.86, 0.91, 0.84, 0.88, 0.91),
   CI_lower = c(0.83, 0.77, 0.74, 0.76, 0.75, 0.81, 0.81),
   CI_upper = c(1.01, 1.02, 1.00, 1.09, 0.94, 0.96, 1.03),
-  n_tirz = c(801, 367, 311, 229, 566, 1089, 512),
-  n_dula = c(862, 408, 357, 249, 669, 1217, 557),
   stringsAsFactors = FALSE
 )
 
-# Display the extracted data
-kable(endpoints,
-      caption = "Extracted Endpoint Data from SURPASS-CVOT (Table 2)",
-      col.names = c("Endpoint", "HR", "CI Lower", "CI Upper",
-                    "Events (Tirz)", "Events (Dula)")) %>%
-  kable_styling(bootstrap_options = c("striped", "hover"))
-```
-
-## 3.2 Calculate Log-Scale Statistics and Verify CIs Match Paper
-
-```{r calculate-stats}
-# Calculate log-scale statistics
-endpoints <- endpoints %>%
+ratio_endpoints <- ratio_endpoints %>%
   mutate(
     log_HR = log(HR),
     SE = (log(CI_upper) - log(CI_lower)) / (2 * 1.96),
     z_stat = log_HR / SE,
-    significant = abs(z_stat) > 1.96,
-    # Verify our CI calculation matches the paper
-    calc_CI_lower = round(exp(log_HR - 1.96 * SE), 2),
-    calc_CI_upper = round(exp(log_HR + 1.96 * SE), 2)
+    significant = abs(z_stat) > 1.96
   )
 
-# Display verification
-cat("=== Verification: Calculated CIs Match Paper ===\n\n")
-for (i in 1:nrow(endpoints)) {
-  match_lower <- abs(endpoints$calc_CI_lower[i] - endpoints$CI_lower[i]) < 0.02
-  match_upper <- abs(endpoints$calc_CI_upper[i] - endpoints$CI_upper[i]) < 0.02
-  cat(endpoints$name[i], ": Paper (", endpoints$CI_lower[i], "-", endpoints$CI_upper[i],
-      ") vs Calc (", endpoints$calc_CI_lower[i], "-", endpoints$calc_CI_upper[i], ") ",
-      ifelse(match_lower & match_upper, "OK", "CHECK"), "\n")
-}
+kable(ratio_endpoints %>% select(name, HR, CI_lower, CI_upper, z_stat, significant) %>%
+        mutate(z_stat = round(z_stat, 3)),
+      col.names = c("Endpoint", "HR", "CI Lower", "CI Upper", "z", "Sig?")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
 ```
 
-```{r stats-table}
-# Display calculated statistics
-endpoints %>%
-  select(name, HR, log_HR, SE, z_stat, significant) %>%
-  mutate(across(where(is.numeric), ~round(., 3))) %>%
-  kable(caption = "Calculated Test Statistics",
-        col.names = c("Endpoint", "HR", "log(HR)", "SE", "z-statistic", "Significant?")) %>%
+## 2.2 Difference Endpoints
+
+```{r extract-diff}
+diff_endpoints <- data.frame(
+  name = c("HbA1c Change (36 mo)", "Body Weight Change (36 mo)", "Triglycerides Change (24 mo)",
+           "Systolic BP Change (36 mo)", "eGFR Change (36 mo)", "LDL Cholesterol Change (24 mo)"),
+  estimate = c(-0.78, -6.8, -15.6, -2.1, 3.17, 1.3),
+  CI_lower = c(-0.84, -7.1, -16.9, -2.6, 2.09, -0.2),
+  CI_upper = c(-0.72, -6.5, -14.3, -1.5, 4.26, 2.8),
+  units = c("pp", "%", "pp", "mmHg", "ml/min/1.73m2", "pp"),
+  preferred_negative = c(TRUE, TRUE, TRUE, TRUE, FALSE, TRUE),
+  stringsAsFactors = FALSE
+)
+
+diff_endpoints <- diff_endpoints %>%
+  mutate(
+    SE = (CI_upper - CI_lower) / (2 * 1.96),
+    z_stat = estimate / SE,
+    significant = abs(z_stat) > 1.96
+  )
+
+kable(diff_endpoints %>% select(name, estimate, CI_lower, CI_upper, z_stat, significant) %>%
+        mutate(z_stat = round(z_stat, 2)),
+      col.names = c("Endpoint", "Diff", "CI Lower", "CI Upper", "z", "Sig?")) %>%
   kable_styling(bootstrap_options = c("striped", "hover"))
 ```
 
 ---
 
-# 4. DirectedCI Analysis
+# 3. Analysis Parameters
 
-## 4.1 Set Analysis Parameters
-
-```{r set-params}
+```{r params}
+# Parameters
 alpha <- 0.05
-ct <- qnorm(1 - alpha / 2)  # 1.96
-r <- 1.3  # inflation parameter
+ct <- qnorm(1 - alpha / 2)
+r <- 1.3
+m <- nrow(ratio_endpoints) + nrow(diff_endpoints)
+R <- sum(ratio_endpoints$significant) + sum(diff_endpoints$significant)
+by_alpha <- (R / m) * alpha
 
-cat("Analysis Parameters:\n")
-cat("- Alpha:", alpha, "\n")
-cat("- Critical value (ct):", round(ct, 3), "\n")
-cat("- Inflation parameter (r):", r, "\n")
-cat("- Preferred direction: NEGATIVE (HR < 1, protection)\n")
+params <- data.frame(
+  Parameter = c("alpha", "ct (critical value)", "r (inflation)", "m (total endpoints)",
+                "R (selected)", "BY-alpha"),
+  Value = c(alpha, round(ct, 3), r, m, R, round(by_alpha, 5))
+)
+kable(params) %>% kable_styling(bootstrap_options = "striped", full_width = FALSE)
 ```
 
-## 4.2 Compute All CI Types Using Z-Scale Functions
+---
 
-Following the vignette approach, we use z-scale functions and convert back to HR scale.
+# 4. Compute DirectedCI
 
 ```{r compute-cis}
-# Function to compute all CI types for an endpoint
-compute_all_cis <- function(log_hr, se, ct, r, alpha) {
-  # Standardize to z-scale
-  z <- log_hr / se
+compute_cis <- function(estimate, se, ct, r, alpha, by_alpha, direction = "negative") {
+  z <- estimate / se
+  std_ci <- c(estimate - 1.96 * se, estimate + 1.96 * se)
+  by_z <- qnorm(1 - by_alpha / 2)
+  by_std <- c(estimate - by_z * se, estimate + by_z * se)
 
-  # Standard symmetric CI (log scale)
-  std_ci_log <- c(log_hr - 1.96 * se, log_hr + 1.96 * se)
-
-  # Direction-Preferring Marginal CI (NEGATIVE direction preferred)
-  # Use dn_marginal_ci for negative preference
-  dp_marg_z <- dn_marginal_ci(y = z, r_l = r, alpha = alpha)
-  dp_marg_log <- dp_marg_z * se
-
-  # Modified Pratt Marginal CI
-  mp_marg_z <- mp_marginal_ci(y = z, r = r, alpha = alpha)
-  mp_marg_log <- mp_marg_z * se
-
-  # Shortest Marginal CI
-  short_marg_z <- shortest_marginal_ci(y = z, alpha = alpha)
-  short_marg_log <- short_marg_z * se
-
-  # Conditional CIs (only if |z| > ct)
-  if (abs(z) > ct) {
-    # DP Conditional (negative preference)
-    dp_cond_z <- dn_conditional_ci(y = z, r = r, ct = ct, alpha = alpha)
-    dp_cond_log <- dp_cond_z * se
-
-    # Shortest Conditional
-    short_cond_z <- shortest_conditional_ci(y = z, ct = ct, alpha = alpha)
-    short_cond_log <- short_cond_z * se
+  if (direction == "negative") {
+    dp_marg_z <- dn_marginal_ci(y = z, r_l = r, alpha = alpha)
+    by_dp_marg_z <- dn_marginal_ci(y = z, r_l = r, alpha = by_alpha)
   } else {
-    dp_cond_log <- c(NA, NA)
-    short_cond_log <- c(NA, NA)
+    dp_marg_z <- dp_marginal_ci(y = z, r_l = r, alpha = alpha)
+    by_dp_marg_z <- dp_marginal_ci(y = z, r_l = r, alpha = by_alpha)
   }
 
-  # Return results
-  list(
-    z = z,
-    significant = abs(z) > ct,
-    std_log = std_ci_log,
-    dp_marg_log = dp_marg_log,
-    mp_marg_log = mp_marg_log,
-    short_marg_log = short_marg_log,
-    dp_cond_log = dp_cond_log,
-    short_cond_log = short_cond_log
-  )
+  if (abs(z) > ct) {
+    if (direction == "negative") {
+      dp_cond_z <- dn_conditional_ci(y = z, r = r, ct = ct, alpha = alpha)
+    } else {
+      dp_cond_z <- dp_conditional_ci(y = z, r = r, ct = ct, alpha = alpha)
+    }
+    short_cond_z <- shortest_conditional_ci(y = z, ct = ct, alpha = alpha)
+  } else {
+    dp_cond_z <- short_cond_z <- c(NA, NA)
+  }
+
+  list(z = z, significant = abs(z) > ct,
+       std = std_ci, by_std = by_std,
+       dp_marg = dp_marg_z * se, by_dp_marg = by_dp_marg_z * se,
+       dp_cond = if(!any(is.na(dp_cond_z))) dp_cond_z * se else c(NA, NA),
+       short_cond = if(!any(is.na(short_cond_z))) short_cond_z * se else c(NA, NA))
 }
 
-# Apply to all endpoints
-results <- lapply(1:nrow(endpoints), function(i) {
-  res <- compute_all_cis(
-    log_hr = endpoints$log_HR[i],
-    se = endpoints$SE[i],
-    ct = ct, r = r, alpha = alpha
-  )
-
+# Compute for ratio endpoints
+ratio_results <- lapply(1:nrow(ratio_endpoints), function(i) {
+  res <- compute_cis(ratio_endpoints$log_HR[i], ratio_endpoints$SE[i], ct, r, alpha, by_alpha, "negative")
   data.frame(
-    endpoint = endpoints$name[i],
-    HR = endpoints$HR[i],
-    z = res$z,
-    significant = res$significant,
-    # Standard CI
-    std_lower = exp(res$std_log[1]),
-    std_upper = exp(res$std_log[2]),
-    # DP Marginal
-    dp_marg_lower = exp(res$dp_marg_log[1]),
-    dp_marg_upper = exp(res$dp_marg_log[2]),
-    # MP Marginal
-    mp_marg_lower = exp(res$mp_marg_log[1]),
-    mp_marg_upper = exp(res$mp_marg_log[2]),
-    # DP Conditional
-    dp_cond_lower = if(!is.na(res$dp_cond_log[1])) exp(res$dp_cond_log[1]) else NA,
-    dp_cond_upper = if(!is.na(res$dp_cond_log[2])) exp(res$dp_cond_log[2]) else NA,
-    # Shortest Conditional
-    short_cond_lower = if(!is.na(res$short_cond_log[1])) exp(res$short_cond_log[1]) else NA,
-    short_cond_upper = if(!is.na(res$short_cond_log[2])) exp(res$short_cond_log[2]) else NA
+    endpoint = ratio_endpoints$name[i], type = "Ratio",
+    estimate = ratio_endpoints$HR[i], estimate_raw = ratio_endpoints$log_HR[i], se = ratio_endpoints$SE[i],
+    z = res$z, significant = res$significant,
+    std_lower = exp(res$std[1]), std_upper = exp(res$std[2]),
+    by_std_lower = exp(res$by_std[1]), by_std_upper = exp(res$by_std[2]),
+    by_dp_lower = exp(res$by_dp_marg[1]), by_dp_upper = exp(res$by_dp_marg[2]),
+    dp_cond_lower = if(!is.na(res$dp_cond[1])) exp(res$dp_cond[1]) else NA,
+    dp_cond_upper = if(!is.na(res$dp_cond[2])) exp(res$dp_cond[2]) else NA
   )
 })
+ratio_results_df <- do.call(rbind, ratio_results)
 
-results_df <- do.call(rbind, results)
+# Compute for difference endpoints
+diff_results <- lapply(1:nrow(diff_endpoints), function(i) {
+  direction <- ifelse(diff_endpoints$preferred_negative[i], "negative", "positive")
+  res <- compute_cis(diff_endpoints$estimate[i], diff_endpoints$SE[i], ct, r, alpha, by_alpha, direction)
+  data.frame(
+    endpoint = diff_endpoints$name[i], type = "Difference",
+    estimate = diff_endpoints$estimate[i], estimate_raw = diff_endpoints$estimate[i], se = diff_endpoints$SE[i],
+    z = res$z, significant = res$significant,
+    std_lower = res$std[1], std_upper = res$std[2],
+    by_std_lower = res$by_std[1], by_std_upper = res$by_std[2],
+    by_dp_lower = res$by_dp_marg[1], by_dp_upper = res$by_dp_marg[2],
+    dp_cond_lower = res$dp_cond[1], dp_cond_upper = res$dp_cond[2]
+  )
+})
+diff_results_df <- do.call(rbind, diff_results)
+all_results_df <- rbind(ratio_results_df, diff_results_df)
 ```
 
-## 4.3 Results Summary Table
+## 4.1 Results - Ratio Endpoints
 
-```{r results-table}
-# Display results
-results_df %>%
-  select(endpoint, HR, z, significant,
-         std_lower, std_upper,
-         dp_marg_lower, dp_marg_upper,
-         dp_cond_lower, dp_cond_upper) %>%
+```{r results-ratio}
+ratio_results_df %>%
+  select(endpoint, estimate, z, significant, std_lower, std_upper, by_dp_lower, by_dp_upper, dp_cond_lower, dp_cond_upper) %>%
   mutate(across(where(is.numeric), ~round(., 3))) %>%
-  kable(caption = "DirectedCI Results (HR Scale)",
-        col.names = c("Endpoint", "HR", "z", "Sig?",
-                      "Std L", "Std U",
-                      "DP- Marg L", "DP- Marg U",
-                      "DP- Cond L", "DP- Cond U")) %>%
+  kable(col.names = c("Endpoint", "HR", "z", "Sig?", "Std L", "Std U", "BY DP- L", "BY DP- U", "Cond DP- L", "Cond DP- U")) %>%
   kable_styling(bootstrap_options = c("striped", "hover"), font_size = 11) %>%
-  row_spec(which(results_df$significant), bold = TRUE, background = "#E8F5E9")
+  row_spec(which(ratio_results_df$significant), bold = TRUE, background = "#E8F5E9")
+```
+
+## 4.2 Results - Difference Endpoints
+
+```{r results-diff}
+diff_results_df %>%
+  select(endpoint, estimate, z, significant, std_lower, std_upper, by_dp_lower, by_dp_upper, dp_cond_lower, dp_cond_upper) %>%
+  mutate(across(where(is.numeric), ~round(., 3))) %>%
+  kable(col.names = c("Endpoint", "Diff", "z", "Sig?", "Std L", "Std U", "BY DP L", "BY DP U", "Cond DP L", "Cond DP U")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), font_size = 11) %>%
+  row_spec(which(diff_results_df$significant), bold = TRUE, background = "#E8F5E9")
 ```
 
 ---
 
 # 5. Visualizations
 
-## 5.1 Forest Plot: Original Paper Results (Standard CIs)
+## 5.1 Ratio Endpoints - Forest Plot
 
-```{r forest-standard, fig.height=7, fig.width=10}
-# Forest plot showing paper results with standard 95% CIs
-ggplot(results_df, aes(y = reorder(endpoint, HR), x = HR)) +
-  geom_vline(xintercept = 1, linetype = "dashed", color = "gray40", linewidth = 0.8) +
-  geom_errorbarh(aes(xmin = std_lower, xmax = std_upper),
-                 height = 0.3, linewidth = 1, color = "#d7191c") +
+```{r forest-ratio, fig.height=7}
+ggplot(ratio_results_df, aes(y = reorder(endpoint, estimate), x = estimate)) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "gray40") +
+  geom_errorbarh(aes(xmin = std_lower, xmax = std_upper), height = 0.3, linewidth = 1, color = "#d7191c") +
   geom_point(aes(shape = significant), size = 3.5, color = "#d7191c") +
-  scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1),
-                     labels = c("TRUE" = "Significant", "FALSE" = "Not Significant")) +
+  scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1)) +
   scale_x_continuous(breaks = seq(0.7, 1.1, 0.1), limits = c(0.65, 1.15)) +
-  labs(
-    title = "SURPASS-CVOT: Standard 95% Confidence Intervals (Paper Results)",
-    subtitle = "Tirzepatide vs Dulaglutide | HR < 1 favors Tirzepatide",
-    x = "Hazard Ratio (95% CI)",
-    y = "",
-    shape = "Statistical\nSignificance"
-  ) +
-  theme_minimal(base_size = 14) +
-  theme(
-    legend.position = "bottom",
-    panel.grid.minor = element_blank(),
-    plot.title = element_text(face = "bold")
-  )
+  labs(title = "SURPASS-CVOT: Ratio Endpoints", x = "Hazard Ratio (95% CI)", y = "") +
+  theme_minimal(base_size = 14) + theme(legend.position = "none")
 ```
 
-## 5.2 Comprehensive CI Comparison: All Methods
+## 5.2 CI Comparison - Ratio Endpoints
 
-This plot compares all available CI methods for the significant endpoints. The left facet shows BY-adjusted CIs (multiplicity correction), and the right facet shows Conditional CIs (selection correction):
-
-- **Unadjusted**: Symmetric CI (standard in left facet, shortest in right facet)
-- **DP+**: Direction-preferring CI favoring the expected benefit direction
-- **MP**: Modified Pratt CI (symmetric direction-preferring)
-
-```{r comprehensive-comparison, fig.height=9, fig.width=14}
-# Use package's built-in plot for comprehensive comparison
-# Include all significant endpoints
-sig_idx <- which(results_df$significant)
-
-if (length(sig_idx) > 0) {
+```{r ci-comparison-ratio, fig.height=9, fig.width=14}
+sig_ratio_idx <- which(ratio_endpoints$significant)
+if (length(sig_ratio_idx) > 0) {
   plot_ci_comparison(
-    estimates = endpoints$log_HR[sig_idx],
-    se = endpoints$SE[sig_idx],
-    names = endpoints$name[sig_idx],
-    alpha = alpha,
-    m = nrow(endpoints),  # Total number of endpoints for BY adjustment
-    r = r,
-    ct = ct,
-    methods = c("standard", "by_standard", "by_dp", "by_mp",
-                "cond_standard", "cond_dp", "cond_mp"),
+    estimates = ratio_endpoints$log_HR[sig_ratio_idx],
+    se = ratio_endpoints$SE[sig_ratio_idx],
+    names = ratio_endpoints$name[sig_ratio_idx],
+    alpha = alpha, m = m, R = R, r = r, ct = ct,
+    methods = c("by_standard", "by_dp", "by_mp", "cond_standard", "cond_dp", "cond_mp"),
     direction = "negative",
-    title = "SURPASS-CVOT: Comprehensive CI Comparison (Significant Endpoints)",
+    title = paste0("Ratio Endpoints (m=", m, ", R=", R, ")"),
     xlab = "log(Hazard Ratio)"
   )
 }
 ```
 
-### Interpretation Guide
+## 5.3 CI Comparison - Difference Endpoints
 
-| CI Type | Left Facet (BY Adjusted) | Right Facet (Conditional) |
-|---------|--------------------------|---------------------------|
-| Unadjusted | Multiplicity-corrected symmetric CI | Selection-corrected shortest CI |
-| DP+ | Multiplicity + direction preference | Selection + direction preference |
-| MP | Multiplicity + modified Pratt | Selection + modified Pratt |
-
----
-
-# 6. Detailed Results Interpretation
-
-## 6.1 Primary Endpoint: 3-Point MACE
-
-```{r primary-detail}
-primary <- results_df %>% filter(endpoint == "MACE-3 (Primary)")
-
-cat("=== PRIMARY ENDPOINT: 3-POINT MACE ===\n\n")
-cat("Hazard Ratio:", primary$HR, "\n")
-cat("z-statistic:", round(primary$z, 3), "\n")
-cat("Significant (|z| > 1.96):", primary$significant, "\n\n")
-
-cat("Standard 95% CI: (", round(primary$std_lower, 3), ",", round(primary$std_upper, 3), ")\n")
-cat("DP- Marginal CI: (", round(primary$dp_marg_lower, 3), ",", round(primary$dp_marg_upper, 3), ")\n")
-cat("MP Marginal CI:  (", round(primary$mp_marg_lower, 3), ",", round(primary$mp_marg_upper, 3), ")\n\n")
-
-cat("KEY FINDINGS:\n")
-cat("- Paper conclusion: Noninferiority met (upper CI < 1.05), superiority not met (P=0.09)\n")
-cat("- Standard CI includes 1.0, so superiority cannot be claimed\n")
-cat("- DP- CI pulls upper bound toward 1.0, still includes it\n")
-cat("- Direction-preferring approach shows trend but confirms uncertainty\n")
-```
-
-## 6.2 All-Cause Death (Significant)
-
-```{r death-detail}
-death <- results_df %>% filter(endpoint == "All-Cause Death")
-
-cat("=== ALL-CAUSE DEATH ===\n\n")
-cat("Hazard Ratio:", death$HR, "\n")
-cat("z-statistic:", round(death$z, 3), "\n")
-cat("Significant:", death$significant, "\n\n")
-
-cat("Standard 95% CI:      (", round(death$std_lower, 3), ",", round(death$std_upper, 3), ")\n")
-cat("DP- Marginal CI:      (", round(death$dp_marg_lower, 3), ",", round(death$dp_marg_upper, 3), ")\n")
-cat("DP- Conditional CI:   (", round(death$dp_cond_lower, 3), ",", round(death$dp_cond_upper, 3), ")\n")
-cat("Shortest Cond. CI:    (", round(death$short_cond_lower, 3), ",", round(death$short_cond_upper, 3), ")\n\n")
-
-cat("KEY FINDINGS:\n")
-cat("- Strong evidence of mortality reduction (16% relative risk reduction)\n")
-cat("- Both standard and DP CIs exclude 1.0\n")
-cat("- Conditional CIs account for selection, remain significant\n")
-cat("- Robust evidence favoring tirzepatide\n")
-```
-
-## 6.3 4-Point MACE (Significant)
-
-```{r mace4-detail}
-mace4 <- results_df %>% filter(endpoint == "4-Point MACE")
-
-cat("=== 4-POINT MACE ===\n\n")
-cat("Hazard Ratio:", mace4$HR, "\n")
-cat("z-statistic:", round(mace4$z, 3), "\n")
-cat("Significant:", mace4$significant, "\n\n")
-
-cat("Standard 95% CI:      (", round(mace4$std_lower, 3), ",", round(mace4$std_upper, 3), ")\n")
-cat("DP- Marginal CI:      (", round(mace4$dp_marg_lower, 3), ",", round(mace4$dp_marg_upper, 3), ")\n")
-cat("DP- Conditional CI:   (", round(mace4$dp_cond_lower, 3), ",", round(mace4$dp_cond_upper, 3), ")\n\n")
-
-cat("KEY FINDINGS:\n")
-cat("- Significant reduction in expanded cardiovascular composite\n")
-cat("- 12% relative risk reduction robustly supported\n")
-cat("- All CI methods confirm benefit\n")
+```{r ci-comparison-diff, fig.height=9, fig.width=14}
+sig_diff_idx <- which(diff_endpoints$significant)
+if (length(sig_diff_idx) > 0) {
+  # For difference endpoints, handle mixed directions
+  # Most prefer negative (lower is better), except eGFR prefers positive
+  plot_ci_comparison(
+    estimates = diff_endpoints$estimate[sig_diff_idx],
+    se = diff_endpoints$SE[sig_diff_idx],
+    names = diff_endpoints$name[sig_diff_idx],
+    alpha = alpha, m = m, R = R, r = r, ct = ct,
+    methods = c("by_standard", "by_dp", "by_mp", "cond_standard", "cond_dp", "cond_mp"),
+    direction = "negative",
+    title = paste0("Difference Endpoints (m=", m, ", R=", R, ")"),
+    xlab = "Difference (Tirzepatide - Dulaglutide)"
+  )
+}
 ```
 
 ---
 
-# 7. Summary Comparison
-
-## 7.1 Standard vs DirectedCI Interpretation
-
-```{r comparison-table}
-comparison <- data.frame(
-  Endpoint = results_df$endpoint,
-  HR = results_df$HR,
-  `Paper CI` = paste0("(", endpoints$CI_lower, "-", endpoints$CI_upper, ")"),
-  `Paper Conclusion` = c("Noninferior, not superior", "Trend, NS", "Trend, NS",
-                          "NS", "Significant benefit", "Significant benefit", "Trend, NS"),
-  `DP- Upper` = round(results_df$dp_marg_upper, 3),
-  `DirectedCI Note` = c(
-    "Upper bound at 1.0; directional trend",
-    "Upper bound at 1.0; possible benefit",
-    "Upper bound at 1.0; strong directional evidence",
-    "CI wide; inconclusive",
-    "Robust benefit confirmed",
-    "Robust benefit confirmed",
-    "Upper bound >1; uncertain"
-  ),
-  check.names = FALSE
-)
-
-kable(comparison, caption = "Comparison: Standard vs DirectedCI Interpretation") %>%
-  kable_styling(bootstrap_options = c("striped", "hover")) %>%
-  row_spec(c(5, 6), bold = TRUE, background = "#C8E6C9")
-```
-
-## 7.2 Key Takeaways
-
-```{r takeaways, echo=FALSE}
-cat("=== KEY TAKEAWAYS ===\n\n")
-
-cat("1. SIGNIFICANT ENDPOINTS (All-cause death, 4-point MACE):\n")
-cat("   - Standard and DirectedCI both confirm benefit\n")
-cat("   - Conditional CIs account for selection, remain robust\n\n")
-
-cat("2. BORDERLINE ENDPOINTS (Primary MACE, MI):\n")
-cat("   - Standard CI includes 1.0 -> 'not significant'\n")
-cat("   - DP- CI pulls upper bound to 1.0, showing directional trend\n")
-cat("   - Interpretation shifts from 'no effect' to 'likely benefit, uncertain'\n\n")
-
-cat("3. CLINICAL IMPLICATIONS:\n")
-cat("   - Standard: 'Tirzepatide is noninferior to dulaglutide'\n")
-cat("   - DirectedCI: 'Tirzepatide likely provides CV benefit, with robust\n")
-cat("     evidence for mortality and expanded MACE outcomes'\n")
-```
-
----
-
-# 8. Conclusions
-
-The DirectedCI analysis of the SURPASS-CVOT trial provides nuanced interpretation:
-
-1. **All-cause death** and **4-point MACE** show robust evidence of benefit that is confirmed by all CI methods.
-
-2. **The primary MACE-3 endpoint** shows a directional trend toward benefit, though uncertainty remains (consistent with the paper's P=0.09 for superiority).
-
-3. **The Direction-Preferring approach** explicitly incorporates the scientific hypothesis that tirzepatide should provide cardiovascular benefit, offering a more nuanced interpretation than the binary significant/not-significant framework.
-
----
-
-# Session Information
+# Session Info
 
 ```{r session-info}
 sessionInfo()
