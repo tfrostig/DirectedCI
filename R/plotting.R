@@ -139,7 +139,9 @@ plot_conditional_ar <- function(ct,
 #' @param names Character vector. Names/labels for each parameter (optional).
 #' @param alpha Numeric in (0, 1). Significance level. Default 0.05.
 #' @param m Integer. Total number of parameters tested (for BY adjustment). Default length(estimates).
-#' @param r Numeric >= 1. Inflation factor for DP+ and MP methods. Default 1.3.
+#' @param R Integer. Total number of selected parameters for BY adjustment. Default length(estimates).
+#'   Use this when plotting a subset of selected endpoints but BY adjustment should use total selected count.
+#' @param r Numeric >= 1. Inflation factor for DP and MP methods. Default 1.3.
 #' @param ct Numeric > 0. Selection threshold on Z-scale. Default qnorm(0.975).
 #' @param methods Character vector. Which CI methods to include. Options:
 #'   "standard" (unadjusted), "bonferroni", "by_standard", "by_dp", "by_mp",
@@ -192,6 +194,7 @@ plot_ci_comparison <- function(estimates,
                                 names = NULL,
                                 alpha = 0.05,
                                 m = length(estimates),
+                                R = length(estimates),
                                 r = 1.3,
                                 ct = qnorm(0.975),
                                 methods = c("standard", "by_standard", "by_dp",
@@ -223,8 +226,8 @@ plot_ci_comparison <- function(estimates,
     warning("Some estimates are not significant (|z| <= ct). Conditional CIs may not be valid for these.")
   }
 
-  # BY adjustment level
-  by_alpha <- (n_selected / m) * alpha
+  # BY adjustment level (use R = total selected, not just length of estimates passed)
+  by_alpha <- (R / m) * alpha
 
   # Compute r_l for direction-preferring marginal CI
   # r_l is a value in [0,1] that corresponds to the inflation factor r
@@ -320,20 +323,22 @@ plot_ci_comparison <- function(estimates,
   plot_df <- do.call(rbind, ci_results)
 
   # Create nice method labels (unified naming - facets distinguish BY vs Conditional)
+  # DP label reflects actual direction used
+  dp_label <- ifelse(direction == "positive", "DP+", "DP-")
   method_labels <- c(
     "standard" = "Unadjusted",
     "bonferroni" = "Bonferroni",
-    "by_standard" = "Unadjusted",
-    "by_dp" = "DP+",
+    "by_standard" = "Standard",
+    "by_dp" = dp_label,
     "by_mp" = "MP",
-    "cond_standard" = "Unadjusted",
-    "cond_dp" = "DP+",
+    "cond_standard" = "Standard",
+    "cond_dp" = dp_label,
     "cond_mp" = "MP"
   )
 
   plot_df$method_label <- method_labels[plot_df$method]
   plot_df$method_label <- factor(plot_df$method_label,
-                                  levels = method_labels[methods])
+                                  levels = unique(method_labels[methods]))
 
   # Determine facet grouping
   if (show_facets) {
@@ -358,8 +363,10 @@ plot_ci_comparison <- function(estimates,
   if (is.null(color_palette)) {
     color_palette <- c(
       "Unadjusted" = "#d7191c",
+      "Standard" = "#fdae61",
       "Bonferroni" = "#A9A9A9",
       "DP+" = "#2b83ba",
+      "DP-" = "#2b83ba",
       "MP" = "#abdda4"
     )
   }
